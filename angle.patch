@@ -1,8 +1,8 @@
 diff --git a/build_tools/sdk.py b/build_tools/sdk.py
-index 75d8864a2f..be1a262144 100644
+index 5a5cf65995..2d98f44101 100644
 --- a/build_tools/sdk.py
 +++ b/build_tools/sdk.py
-@@ -71,8 +71,8 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
+@@ -72,8 +72,8 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
  # Win32
  
  # The version we have prepackaged
@@ -14,10 +14,10 @@ index 75d8864a2f..be1a262144 100644
  PACKAGES_WIN32_SDK_10=f"WindowsKits-{VERSION_WINDOWS_SDK_10}"
  
 diff --git a/build_tools/waf_dynamo.py b/build_tools/waf_dynamo.py
-index f8db79071b..6d230d91eb 100644
+index ccd7a5e4a2..1826fc5868 100644
 --- a/build_tools/waf_dynamo.py
 +++ b/build_tools/waf_dynamo.py
-@@ -79,7 +79,7 @@ def platform_supports_feature(platform, feature, data):
+@@ -82,7 +82,7 @@ def platform_supports_feature(platform, feature, data):
      if feature == 'opengl_compute':
          return platform not in ['js-web', 'wasm-web', 'wasm_pthread-web', 'x86_64-ios', 'arm64-ios', 'arm64-macos', 'x86_64-macos']
      if feature == 'opengles':
@@ -26,7 +26,7 @@ index f8db79071b..6d230d91eb 100644
      if feature == 'webgpu':
          return platform in ['js-web', 'wasm-web', 'wasm_pthread-web']
      return waf_dynamo_vendor.supports_feature(platform, feature, data)
-@@ -123,6 +123,9 @@ def platform_graphics_libs_and_symbols(platform):
+@@ -126,6 +126,9 @@ def platform_graphics_libs_and_symbols(platform):
      elif platform in ('arm64-linux'):
          use_opengles = True
          use_vulkan = Options.options.with_vulkan
@@ -37,10 +37,10 @@ index f8db79071b..6d230d91eb 100644
          use_opengl = True
          use_vulkan = Options.options.with_vulkan
 diff --git a/engine/engine/wscript b/engine/engine/wscript
-index 0be334ad27..c27ec6235d 100644
+index 924f40e4e0..d3a2bb5ba2 100644
 --- a/engine/engine/wscript
 +++ b/engine/engine/wscript
-@@ -117,7 +117,7 @@ def configure(conf):
+@@ -119,7 +119,7 @@ def configure(conf):
          conf.env['STLIB_CPP_RUNTIME'] = 'c++_static'
  
      elif target_os == TargetOS.WINDOWS:
@@ -50,7 +50,7 @@ index 0be334ad27..c27ec6235d 100644
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
-index 8f49d4c1d3..1d865ecebe 100644
+index 57d08d99ab..cf80a5c862 100644
 --- a/engine/graphics/src/graphics.cpp
 +++ b/engine/graphics/src/graphics.cpp
 @@ -354,6 +354,7 @@ namespace dmGraphics
@@ -62,7 +62,7 @@ index 8f49d4c1d3..1d865ecebe 100644
          }
          return selected_shader;
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index 4abb76a60b..1e7d566e78 100644
+index 21160202d9..dbef3dc3dd 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -84,116 +84,7 @@
@@ -288,7 +288,7 @@ index 4abb76a60b..1e7d566e78 100644
          context->m_IsGles3Version = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState  = GetDefaultPipelineState();
  
-@@ -2984,9 +2777,9 @@ static void LogFrameBufferError(GLenum status)
+@@ -2991,9 +2784,9 @@ static void LogFrameBufferError(GLenum status)
          {
              if (context->m_IsGles3Version)
              {
@@ -348,12 +348,12 @@ index 725e994cea..3a8d806ec4 100755
          conf.env.append_value('LINKFLAGS', ['-lEGL', '-lGLESv1_CM', '-lGLESv2', '-landroid'])
  
 diff --git a/scripts/build.py b/scripts/build.py
-index c3e2d85a8c..c44cf80e4c 100755
+index cae83095aa..d966774418 100755
 --- a/scripts/build.py
 +++ b/scripts/build.py
-@@ -193,7 +193,8 @@ PACKAGES_WIN32=[
+@@ -192,7 +192,8 @@ PACKAGES_WIN32=[
      "glfw-3.4",
-     "box2d-3.0.0",
+     "box2d-3.1.0",
      "box2d_defold-2.2.1",
 -    "opus-1.5.2"]
 +    "opus-1.5.2",
@@ -361,9 +361,9 @@ index c3e2d85a8c..c44cf80e4c 100755
  
  PACKAGES_WIN32_64=[
      "protobuf-3.20.1",
-@@ -212,7 +213,8 @@ PACKAGES_WIN32_64=[
+@@ -211,7 +212,8 @@ PACKAGES_WIN32_64=[
      "directx-headers-1.611.0",
-     "box2d-3.0.0",
+     "box2d-3.1.0",
      "box2d_defold-2.2.1",
 -    "opus-1.5.2"]
 +    "opus-1.5.2",
