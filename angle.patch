@@ -1,5 +1,5 @@
 diff --git a/build_tools/sdk.py b/build_tools/sdk.py
-index 5a5cf65995..2d98f44101 100644
+index c9992edd3f..0f15528147 100644
 --- a/build_tools/sdk.py
 +++ b/build_tools/sdk.py
 @@ -72,8 +72,8 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
@@ -14,7 +14,7 @@ index 5a5cf65995..2d98f44101 100644
  PACKAGES_WIN32_SDK_10=f"WindowsKits-{VERSION_WINDOWS_SDK_10}"
  
 diff --git a/build_tools/waf_dynamo.py b/build_tools/waf_dynamo.py
-index ccd7a5e4a2..1826fc5868 100644
+index 51b2b4d3fd..cabb65278b 100644
 --- a/build_tools/waf_dynamo.py
 +++ b/build_tools/waf_dynamo.py
 @@ -82,7 +82,7 @@ def platform_supports_feature(platform, feature, data):
@@ -26,7 +26,7 @@ index ccd7a5e4a2..1826fc5868 100644
      if feature == 'webgpu':
          return platform in ['js-web', 'wasm-web', 'wasm_pthread-web']
      return waf_dynamo_vendor.supports_feature(platform, feature, data)
-@@ -126,6 +126,9 @@ def platform_graphics_libs_and_symbols(platform):
+@@ -129,6 +129,9 @@ def platform_graphics_libs_and_symbols(platform):
      elif platform in ('arm64-linux'):
          use_opengles = True
          use_vulkan = Options.options.with_vulkan
@@ -37,10 +37,10 @@ index ccd7a5e4a2..1826fc5868 100644
          use_opengl = True
          use_vulkan = Options.options.with_vulkan
 diff --git a/engine/engine/wscript b/engine/engine/wscript
-index 924f40e4e0..d3a2bb5ba2 100644
+index db4c1d9920..04a98513f3 100644
 --- a/engine/engine/wscript
 +++ b/engine/engine/wscript
-@@ -119,7 +119,7 @@ def configure(conf):
+@@ -118,7 +118,7 @@ def configure(conf):
          conf.env['STLIB_CPP_RUNTIME'] = 'c++_static'
  
      elif target_os == TargetOS.WINDOWS:
@@ -50,10 +50,10 @@ index 924f40e4e0..d3a2bb5ba2 100644
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
-index 57d08d99ab..cf80a5c862 100644
+index ade825b672..6534ccac02 100644
 --- a/engine/graphics/src/graphics.cpp
 +++ b/engine/graphics/src/graphics.cpp
-@@ -354,6 +354,7 @@ namespace dmGraphics
+@@ -355,6 +355,7 @@ namespace dmGraphics
              else
              {
                  selected_shader = shader;
@@ -62,7 +62,7 @@ index 57d08d99ab..cf80a5c862 100644
          }
          return selected_shader;
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index 21160202d9..dbef3dc3dd 100644
+index bf21fdf0c6..b941b571d9 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -84,116 +84,7 @@
@@ -183,7 +183,7 @@ index 21160202d9..dbef3dc3dd 100644
  #elif defined(__EMSCRIPTEN__)
      #include <GL/glext.h>
      #if defined GL_ES_VERSION_2_0
-@@ -968,104 +859,6 @@ static void LogFrameBufferError(GLenum status)
+@@ -980,104 +871,6 @@ static void LogFrameBufferError(GLenum status)
          assert(_context);
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -288,7 +288,7 @@ index 21160202d9..dbef3dc3dd 100644
          context->m_IsGles3Version = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState  = GetDefaultPipelineState();
  
-@@ -2991,9 +2784,9 @@ static void LogFrameBufferError(GLenum status)
+@@ -3022,9 +2815,9 @@ static void LogFrameBufferError(GLenum status)
          {
              if (context->m_IsGles3Version)
              {
@@ -321,7 +321,7 @@ index be545b86e4..0a8fe93eb4 100644
  #elif defined (ANDROID)
  #define GL_GLEXT_PROTOTYPES
 diff --git a/engine/graphics/wscript b/engine/graphics/wscript
-index 7c083563ce..6943507e88 100644
+index 91758f3a03..9a21b79010 100644
 --- a/engine/graphics/wscript
 +++ b/engine/graphics/wscript
 @@ -59,7 +59,7 @@ def configure(conf):
@@ -334,7 +334,7 @@ index 7c083563ce..6943507e88 100644
      conf.env.append_value('INCLUDES', "../src")
      conf.env.append_value('INCLUDES', os.path.join(dynamo_ext, "include"))
 diff --git a/engine/tools/wscript b/engine/tools/wscript
-index 725e994cea..3a8d806ec4 100755
+index 203ac0f0d8..8af501ca22 100755
 --- a/engine/tools/wscript
 +++ b/engine/tools/wscript
 @@ -48,7 +48,8 @@ def configure(conf):
@@ -348,26 +348,22 @@ index 725e994cea..3a8d806ec4 100755
          conf.env.append_value('LINKFLAGS', ['-lEGL', '-lGLESv1_CM', '-lGLESv2', '-landroid'])
  
 diff --git a/scripts/build.py b/scripts/build.py
-index cae83095aa..d966774418 100755
+index c40b65cf6b..d20f98b29b 100755
 --- a/scripts/build.py
 +++ b/scripts/build.py
-@@ -192,7 +192,8 @@ PACKAGES_WIN32=[
-     "glfw-3.4",
-     "box2d-3.1.0",
-     "box2d_defold-2.2.1",
--    "opus-1.5.2"]
-+    "opus-1.5.2",
-+    "angle-5fb77159"]
+@@ -218,6 +218,7 @@ PACKAGES_MACOS_ARM64=[
+     "SkriBidi-1e8038"]
+ 
+ PACKAGES_WIN32=[
++    "angle-5fb77159",
+     "protobuf-3.20.1",
+     "luajit-2.1.0-a4f56a4",
+     "glut-3.7.6",
+@@ -233,6 +234,7 @@ PACKAGES_WIN32=[
+     "SkriBidi-1e8038"]
  
  PACKAGES_WIN32_64=[
++    "angle-5fb77159",
      "protobuf-3.20.1",
-@@ -211,7 +212,8 @@ PACKAGES_WIN32_64=[
-     "directx-headers-1.611.0",
-     "box2d-3.1.0",
-     "box2d_defold-2.2.1",
--    "opus-1.5.2"]
-+    "opus-1.5.2",
-+    "angle-5fb77159"]
- 
- PACKAGES_LINUX_X86_64=[
-     "protobuf-3.20.1",
+     "luajit-2.1.0-a4f56a4",
+     "glut-3.7.6",
