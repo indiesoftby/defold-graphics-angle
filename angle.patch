@@ -86,10 +86,18 @@ index 226ba28c30..ea51cc9329 100644
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index 15eab478c5..fa67f0e88e 100644
+index 15eab478c5..5bfcfa0b8e 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
-@@ -84,116 +84,7 @@
+@@ -14,6 +14,7 @@
+ 
+ #include <string.h>
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <assert.h>
+ #include <dlib/dlib.h>
+ #include <dlib/log.h>
+@@ -84,116 +85,7 @@
  #elif defined (__linux__)
      // NOP
  #elif defined (_WIN32)
@@ -203,11 +211,11 @@ index 15eab478c5..fa67f0e88e 100644
 -        PFNGLDRAWELEMENTSINSTANCEDPROC glDrawElementsInstanced = NULL;
 -        PFNGLVERTEXATTRIBDIVISORPROC glVertexAttribDivisor = NULL;
 -    #endif
-+    // NOP
++    #include <glfw/glfw3.h>
  #elif defined(__EMSCRIPTEN__)
      #include <GL/glext.h>
      #if defined GL_ES_VERSION_2_0
-@@ -980,104 +871,6 @@ static void LogFrameBufferError(GLenum status)
+@@ -980,104 +872,6 @@ static void LogFrameBufferError(GLenum status)
          assert(_context);
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -312,7 +320,7 @@ index 15eab478c5..fa67f0e88e 100644
          context->m_IsGles3Version = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState  = GetDefaultPipelineState();
  
-@@ -3022,9 +2815,9 @@ static void LogFrameBufferError(GLenum status)
+@@ -3022,9 +2816,9 @@ static void LogFrameBufferError(GLenum status)
          {
              if (context->m_IsGles3Version)
              {
@@ -324,6 +332,22 @@ index 15eab478c5..fa67f0e88e 100644
          }
          else if (shader_type == ShaderDesc::SHADER_TYPE_COMPUTE)
          {
+@@ -5116,6 +4910,15 @@ static void LogFrameBufferError(GLenum status)
+     {
+         GraphicsAdapterFunctionTable fn_table = {};
+         DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
++
++        #if defined(GLFW_ANGLE_PLATFORM_TYPE)
++        const char* angle_platform_type = getenv("DM_ANGLE_PLATFORM_TYPE");
++        if (angle_platform_type && strcmp(angle_platform_type, "d3d9") == 0)
++        {
++            glfwInitHint(GLFW_ANGLE_PLATFORM_TYPE, GLFW_ANGLE_PLATFORM_TYPE_D3D9);
++        }
++        #endif
++
+         return fn_table;
+     }
+ }
 diff --git a/engine/graphics/src/opengl/graphics_opengl_defines.h b/engine/graphics/src/opengl/graphics_opengl_defines.h
 index 1e190182a5..28a1cdae3f 100644
 --- a/engine/graphics/src/opengl/graphics_opengl_defines.h
