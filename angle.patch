@@ -1,5 +1,5 @@
 diff --git a/build_tools/sdk.py b/build_tools/sdk.py
-index c9992edd3f..0f15528147 100644
+index 64a4968658..c30ccbdf6e 100644
 --- a/build_tools/sdk.py
 +++ b/build_tools/sdk.py
 @@ -72,8 +72,8 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
@@ -14,7 +14,7 @@ index c9992edd3f..0f15528147 100644
  PACKAGES_WIN32_SDK_10=f"WindowsKits-{VERSION_WINDOWS_SDK_10}"
  
 diff --git a/build_tools/waf_dynamo.py b/build_tools/waf_dynamo.py
-index 51b2b4d3fd..cabb65278b 100644
+index f5909f9e4c..ba994c7a6f 100644
 --- a/build_tools/waf_dynamo.py
 +++ b/build_tools/waf_dynamo.py
 @@ -82,7 +82,7 @@ def platform_supports_feature(platform, feature, data):
@@ -50,19 +50,43 @@ index db4c1d9920..04a98513f3 100644
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
-index ade825b672..6534ccac02 100644
+index 226ba28c30..ea51cc9329 100644
 --- a/engine/graphics/src/graphics.cpp
 +++ b/engine/graphics/src/graphics.cpp
-@@ -355,6 +355,7 @@ namespace dmGraphics
-             else
-             {
-                 selected_shader = shader;
-+                break; // Stop searching for a shader -> to stay on GLES 3.0 shader.
-             }
-         }
-         return selected_shader;
+@@ -336,6 +336,31 @@ namespace dmGraphics
+     {
+         ShaderDesc::Shader* selected_shader = 0x0;
+ 
++        // Prefer GLES SM300 shaders if available (e.g. for GLES3/WebGL2 contexts).
++        for(uint32_t i = 0; i < shader_desc->m_Shaders.m_Count; ++i)
++        {
++            ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
++            if (shader->m_Language != ShaderDesc::LANGUAGE_GLES_SM300 ||
++                shader->m_ShaderType != shader_type ||
++                !IsShaderLanguageSupported(context, shader->m_Language, shader->m_ShaderType))
++            {
++                continue;
++            }
++
++            if (shader->m_VariantTextureArray)
++            {
++                // Only select this variant if we don't support texture arrays natively
++                if (!IsContextFeatureSupported(context, CONTEXT_FEATURE_TEXTURE_ARRAY))
++                {
++                    return shader;
++                }
++            }
++            else
++            {
++                return shader;
++            }
++        }
++
+         for(uint32_t i = 0; i < shader_desc->m_Shaders.m_Count; ++i)
+         {
+             ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index bf21fdf0c6..b941b571d9 100644
+index 15eab478c5..fa67f0e88e 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -84,116 +84,7 @@
@@ -301,7 +325,7 @@ index bf21fdf0c6..b941b571d9 100644
          else if (shader_type == ShaderDesc::SHADER_TYPE_COMPUTE)
          {
 diff --git a/engine/graphics/src/opengl/graphics_opengl_defines.h b/engine/graphics/src/opengl/graphics_opengl_defines.h
-index be545b86e4..0a8fe93eb4 100644
+index 1e190182a5..28a1cdae3f 100644
 --- a/engine/graphics/src/opengl/graphics_opengl_defines.h
 +++ b/engine/graphics/src/opengl/graphics_opengl_defines.h
 @@ -43,12 +43,10 @@
@@ -348,22 +372,22 @@ index 203ac0f0d8..8af501ca22 100755
          conf.env.append_value('LINKFLAGS', ['-lEGL', '-lGLESv1_CM', '-lGLESv2', '-landroid'])
  
 diff --git a/scripts/build.py b/scripts/build.py
-index c40b65cf6b..d20f98b29b 100755
+index 213c18064d..7a10b41ca7 100755
 --- a/scripts/build.py
 +++ b/scripts/build.py
-@@ -218,6 +218,7 @@ PACKAGES_MACOS_ARM64=[
+@@ -219,6 +219,7 @@ PACKAGES_MACOS_ARM64=[
      "SkriBidi-1e8038"]
  
  PACKAGES_WIN32=[
 +    "angle-5fb77159",
      "protobuf-3.20.1",
-     "luajit-2.1.0-a4f56a4",
+     "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
-@@ -233,6 +234,7 @@ PACKAGES_WIN32=[
+@@ -234,6 +235,7 @@ PACKAGES_WIN32=[
      "SkriBidi-1e8038"]
  
  PACKAGES_WIN32_64=[
 +    "angle-5fb77159",
      "protobuf-3.20.1",
-     "luajit-2.1.0-a4f56a4",
+     "luajit-2.1.0-3e223cb",
      "glut-3.7.6",

@@ -7,9 +7,9 @@ name: Build Defold Win32
 on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
-  # push:
-  #   branches:
-  #     - main
+  push:
+    branches:
+      - main
 
 env:
   DM_PACKAGES_URL: ./local_sdks
