@@ -65,21 +65,14 @@ jobs:
         with:
           dotnet-version: '9.x'
 
+      # Set up MSVC developer environment (cl.exe, link.exe, rc.exe, INCLUDE, LIB).
+      # Always use arch: x64 because the host is x64 and Defold builds host tools
+      # first. For cross-compilation to win32/x86, Defold's sdk_windows.cmake adds
+      # arch-specific /LIBPATH: flags that override the x64 LIB env paths.
       - name: Setup MSVC developer environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
-
-      # ilammy/msvc-dev-cmd sets INCLUDE, LIB, LIBPATH for x64.
-      # INCLUDE is arch-neutral and needed by CMake.
-      # LIB/LIBPATH must be unset: Defold's CMake scripts detect the correct
-      # arch-specific lib dirs internally, and a fixed-arch LIB would break
-      # cross-compilation (e.g., building win32/x86 target from x64 host).
-      - name: Unset arch-specific LIB for cross-compilation
-        shell: bash
-        run: |
-          echo "LIB=" >> "$GITHUB_ENV"
-          echo "LIBPATH=" >> "$GITHUB_ENV"
 
       - name: Setup build environment
         shell: bash
