@@ -21,11 +21,7 @@ jobs:
   bld-eng-windows:
     strategy:
       matrix:
-        include:
-          - platform: x86_64-win32
-            msvc_arch: x64
-          - platform: win32
-            msvc_arch: x86
+        platform: [x86_64-win32, win32]
     runs-on: windows-2022
     steps:
       - name: Checkout Defold
@@ -72,7 +68,7 @@ jobs:
       - name: Setup MSVC developer environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
-          arch: ${{ matrix.msvc_arch }}
+          arch: x64
 
       - name: Setup build environment
         shell: bash
