@@ -65,14 +65,21 @@ jobs:
         with:
           dotnet-version: '9.x'
 
-      - name: Add MSVC and Windows SDK tools to PATH
-        shell: pwsh
+      - name: Setup MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      # ilammy/msvc-dev-cmd sets INCLUDE, LIB, LIBPATH for x64.
+      # INCLUDE is arch-neutral and needed by CMake.
+      # LIB/LIBPATH must be unset: Defold's CMake scripts detect the correct
+      # arch-specific lib dirs internally, and a fixed-arch LIB would break
+      # cross-compilation (e.g., building win32/x86 target from x64 host).
+      - name: Unset arch-specific LIB for cross-compilation
+        shell: bash
         run: |
-          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-          $vcBin = & $vswhere -latest -find "VC\Tools\MSVC\*\bin\Hostx64\x64" | Select-Object -Last 1
-          echo $vcBin >> $env:GITHUB_PATH
-          $sdkBin = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\10.*\x64" -Directory | Select-Object -Last 1
-          echo $sdkBin.FullName >> $env:GITHUB_PATH
+          echo "LIB=" >> "$GITHUB_ENV"
+          echo "LIBPATH=" >> "$GITHUB_ENV"
 
       - name: Setup build environment
         shell: bash
