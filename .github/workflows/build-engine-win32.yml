@@ -12,16 +12,16 @@ on:
       - main
 
 env:
-  DM_PACKAGES_URL: ./local_sdks
+  # DM_PACKAGES_URL: ./local_sdks
   BUILD_BRANCH: ${{ vars.BUILD_BRANCH }}
   RELEASE_TAG: ${{ vars.RELEASE_TAG }}
   # Settings / Secrets and variables / Actions / Variables (tab) -> 
   #   New repository variable -> 
   #   `WIN32_SDK_RUN_ID` = copy-paste from the run id of the `package-win32-sdk.yml` run, i.e.
   #   "https://github.com/example/repo/actions/runs/12397740775" <- 12397740775 is the run id
-  WIN32_SDK_RUN_ID: ${{ vars.WIN32_SDK_RUN_ID }}
-  VERSION_WINDOWS_SDK_10: ${{ vars.VERSION_WINDOWS_SDK_10 }}
-  VERSION_WINDOWS_MSVC_2022: ${{ vars.VERSION_WINDOWS_MSVC_2022 }}
+  # WIN32_SDK_RUN_ID: ${{ vars.WIN32_SDK_RUN_ID }}
+  # VERSION_WINDOWS_SDK_10: ${{ vars.VERSION_WINDOWS_SDK_10 }}
+  # VERSION_WINDOWS_MSVC_2022: ${{ vars.VERSION_WINDOWS_MSVC_2022 }}
 
 jobs:
   bld-eng-windows:
@@ -52,16 +52,6 @@ jobs:
           cp patch/angle-5fb77159-x86_64-win32.tar.gz packages/
           cp patch/angle-5fb77159-win32.tar.gz packages/
 
-      - name: Download SDKs
-        uses: actions/download-artifact@v4
-        with:
-          name: local_sdks
-          path: local_sdks
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ env.WIN32_SDK_RUN_ID }}
-      - shell: bash
-        run: ls -l local_sdks
-
       - name: Install Python
         uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
         with:
@@ -81,13 +71,28 @@ jobs:
         with:
           dotnet-version: '9.x'
 
-      - name: Install dependencies
+      - name: Setup build environment
         shell: bash
-        run: ci/ci.sh install --platform=${{ matrix.platform }}
+        run: |
+          python ./scripts/build.py --platform=${{ matrix.platform }} --save-env-path=env.sh save_env
 
-      - name: Build
+      - name: Install packages
         shell: bash
-        run: ci/ci.sh --platform=${{ matrix.platform }} --skip-builtins --skip-tests --skip-build-tests --skip-docs engine
+        run: |
+          source env.sh
+          python ./scripts/build.py install_ext --platform=${{ matrix.platform }}
+
+      - name: Check SDK
+        shell: bash
+        run: |
+          source env.sh
+          python ./scripts/build.py check_sdk --verbose --platform=${{ matrix.platform }}
+
+      - name: Build engine
+        shell: bash
+        run: |
+          source env.sh
+          python ./scripts/build.py build_engine --platform=${{ matrix.platform }} --skip-builtins --skip-tests --skip-docs -- --skip-build-tests
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
@@ -143,7 +148,14 @@ jobs:
         run: |
           zip -r "graphics_angle-defold-${{ env.BUILD_BRANCH }}.zip" "extension"
 
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: graphics_angle-defold-${{ env.BUILD_BRANCH }}
+          path: graphics_angle-defold-${{ env.BUILD_BRANCH }}.zip
+
       - name: Release extension archive
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
