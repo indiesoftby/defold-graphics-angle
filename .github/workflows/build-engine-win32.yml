@@ -78,26 +78,19 @@ jobs:
         shell: bash
         run: |
           python -u ./scripts/build.py --platform=${{ matrix.platform }} --save-env-path=env.sh save_env
-          sed -i 's/\r$//' env.sh
-          sed -i "s|^export PATH='\\(.*\\)'$|export PATH='\\1':\"\$PATH\"|" env.sh
+          sed 's/\r$//' env.sh | grep -E "^export (DYNAMO_HOME|DEFOLD_HOME|PYTHONPATH|JAVA_HOME)=" | sed "s/^export //;s/'//g" >> "$GITHUB_ENV"
 
       - name: Install packages
         shell: bash
-        run: |
-          source env.sh
-          python -u ./scripts/build.py install_ext --platform=${{ matrix.platform }}
+        run: python -u ./scripts/build.py install_ext --platform=${{ matrix.platform }}
 
       - name: Check SDK
         shell: bash
-        run: |
-          source env.sh
-          python -u ./scripts/build.py check_sdk --verbose --platform=${{ matrix.platform }}
+        run: python -u ./scripts/build.py check_sdk --verbose --platform=${{ matrix.platform }}
 
       - name: Build engine
         shell: bash
-        run: |
-          source env.sh
-          python -u ./scripts/build.py build_engine --platform=${{ matrix.platform }} --skip-builtins --skip-tests --skip-docs -- --skip-build-tests
+        run: python -u ./scripts/build.py build_engine --platform=${{ matrix.platform }} --skip-builtins --skip-tests --skip-docs -- --skip-build-tests
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
