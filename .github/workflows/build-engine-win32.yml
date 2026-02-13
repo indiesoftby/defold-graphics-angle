@@ -78,6 +78,7 @@ jobs:
         shell: bash
         run: |
           python -u ./scripts/build.py --platform=${{ matrix.platform }} --save-env-path=env.sh save_env
+          sed -i 's/\r$//' env.sh
           sed -i "s|^export PATH='\\(.*\\)'$|export PATH='\\1':\"\$PATH\"|" env.sh
 
       - name: Install packages
