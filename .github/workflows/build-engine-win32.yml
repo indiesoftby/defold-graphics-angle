@@ -66,13 +66,29 @@ jobs:
           dotnet-version: '9.x'
 
       # Set up MSVC developer environment (cl.exe, link.exe, rc.exe, INCLUDE, LIB).
-      # Always use arch: x64 because the host is x64 and Defold builds host tools
-      # first. For cross-compilation to win32/x86, Defold's sdk_windows.cmake adds
-      # arch-specific /LIBPATH: flags that override the x64 LIB env paths.
+      # Use arch: x64 — the host is always x64.
       - name: Setup MSVC developer environment
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
+
+      # For win32 (x86) target: rewrite LIB/LIBPATH to use x86 lib dirs.
+      # CMake's compiler test at project() uses the LIB env var to find
+      # kernel32.lib etc. With x64 libs the x86 linker fails (LNK4272).
+      # Defold's host-tools sub-build (x64) still works because sdk_windows.cmake
+      # injects explicit /LIBPATH: flags for x64 that take priority over LIB.
+      - name: Fix LIB paths for x86 target
+        if: matrix.platform == 'win32'
+        shell: bash
+        run: |
+          # LIB uses semicolon-separated Windows paths with backslashes or forward slashes.
+          # Replace \x64\ or /x64/ or \x64; or /x64; with x86 equivalents.
+          new_lib=$(echo "$LIB" | sed 's|[/\\]x64[/\\;]|/x86/|g; s|[/\\]x64$|/x86|g')
+          new_libpath=$(echo "$LIBPATH" | sed 's|[/\\]x64[/\\;]|/x86/|g; s|[/\\]x64$|/x86|g')
+          echo "Original LIB=$LIB"
+          echo "New LIB=$new_lib"
+          echo "LIB=$new_lib" >> "$GITHUB_ENV"
+          echo "LIBPATH=$new_libpath" >> "$GITHUB_ENV"
 
       - name: Setup build environment
         shell: bash
