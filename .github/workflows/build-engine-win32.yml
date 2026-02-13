@@ -21,7 +21,11 @@ jobs:
   bld-eng-windows:
     strategy:
       matrix:
-        platform: [x86_64-win32, win32]
+        include:
+          - platform: x86_64-win32
+            msvc_arch: x64
+          - platform: win32
+            msvc_arch: x86
     runs-on: windows-2022
     steps:
       - name: Checkout Defold
@@ -65,29 +69,34 @@ jobs:
         with:
           dotnet-version: '9.x'
 
+      - name: Setup MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
+
       - name: Setup build environment
         shell: bash
         run: |
-          python ./scripts/build.py --platform=${{ matrix.platform }} --save-env-path=env.sh save_env
+          python -u ./scripts/build.py --platform=${{ matrix.platform }} --save-env-path=env.sh save_env
           sed -i "s|^export PATH='\\(.*\\)'$|export PATH='\\1':\"\$PATH\"|" env.sh
 
       - name: Install packages
         shell: bash
         run: |
           source env.sh
-          python ./scripts/build.py install_ext --platform=${{ matrix.platform }}
+          python -u ./scripts/build.py install_ext --platform=${{ matrix.platform }}
 
       - name: Check SDK
         shell: bash
         run: |
           source env.sh
-          python ./scripts/build.py check_sdk --verbose --platform=${{ matrix.platform }}
+          python -u ./scripts/build.py check_sdk --verbose --platform=${{ matrix.platform }}
 
       - name: Build engine
         shell: bash
         run: |
           source env.sh
-          python ./scripts/build.py build_engine --platform=${{ matrix.platform }} --skip-builtins --skip-tests --skip-docs -- --skip-build-tests
+          python -u ./scripts/build.py build_engine --platform=${{ matrix.platform }} --skip-builtins --skip-tests --skip-docs -- --skip-build-tests
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
