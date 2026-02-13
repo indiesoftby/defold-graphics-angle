@@ -1,4 +1,6 @@
-# Keep this in sync with
+# Based on Defold's build setup and CI scripts:
+# https://github.com/defold/defold/blob/dev/README_SETUP.md
+# https://github.com/defold/defold/blob/dev/README_BUILD.md
 # https://github.com/defold/defold/blob/dev/.github/workflows/engine-nightly.yml
 
 name: Build Defold Win32
@@ -12,16 +14,8 @@ on:
       - main
 
 env:
-  # DM_PACKAGES_URL: ./local_sdks
   BUILD_BRANCH: ${{ vars.BUILD_BRANCH }}
   RELEASE_TAG: ${{ vars.RELEASE_TAG }}
-  # Settings / Secrets and variables / Actions / Variables (tab) -> 
-  #   New repository variable -> 
-  #   `WIN32_SDK_RUN_ID` = copy-paste from the run id of the `package-win32-sdk.yml` run, i.e.
-  #   "https://github.com/example/repo/actions/runs/12397740775" <- 12397740775 is the run id
-  # WIN32_SDK_RUN_ID: ${{ vars.WIN32_SDK_RUN_ID }}
-  # VERSION_WINDOWS_SDK_10: ${{ vars.VERSION_WINDOWS_SDK_10 }}
-  # VERSION_WINDOWS_MSVC_2022: ${{ vars.VERSION_WINDOWS_MSVC_2022 }}
 
 jobs:
   bld-eng-windows:
