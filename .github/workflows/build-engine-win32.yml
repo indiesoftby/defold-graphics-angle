@@ -75,20 +75,22 @@ jobs:
       # For win32 (x86) target: rewrite LIB/LIBPATH to use x86 lib dirs.
       # CMake's compiler test at project() uses the LIB env var to find
       # kernel32.lib etc. With x64 libs the x86 linker fails (LNK4272).
-      # Defold's host-tools sub-build (x64) still works because sdk_windows.cmake
-      # injects explicit /LIBPATH: flags for x64 that take priority over LIB.
+      # Use PowerShell .Replace() for reliable literal string replacement
+      # (bash echo corrupts \x64 as hex escape).
       - name: Fix LIB paths for x86 target
         if: matrix.platform == 'win32'
-        shell: bash
+        shell: pwsh
         run: |
-          # LIB uses semicolon-separated Windows paths with backslashes or forward slashes.
-          # Replace \x64\ or /x64/ or \x64; or /x64; with x86 equivalents.
-          new_lib=$(echo "$LIB" | sed 's|[/\\]x64[/\\;]|/x86/|g; s|[/\\]x64$|/x86|g')
-          new_libpath=$(echo "$LIBPATH" | sed 's|[/\\]x64[/\\;]|/x86/|g; s|[/\\]x64$|/x86|g')
-          echo "Original LIB=$LIB"
-          echo "New LIB=$new_lib"
-          echo "LIB=$new_lib" >> "$GITHUB_ENV"
-          echo "LIBPATH=$new_libpath" >> "$GITHUB_ENV"
+          Write-Host "Original LIB=$env:LIB"
+          Write-Host "Original LIBPATH=$env:LIBPATH"
+          $newLib = $env:LIB.Replace('\x64\', '\x86\').Replace('\x64;', '\x86;')
+          if ($newLib.EndsWith('\x64')) { $newLib = $newLib.Substring(0, $newLib.Length - 4) + '\x86' }
+          $newLibPath = $env:LIBPATH.Replace('\x64\', '\x86\').Replace('\x64;', '\x86;')
+          if ($newLibPath.EndsWith('\x64')) { $newLibPath = $newLibPath.Substring(0, $newLibPath.Length - 4) + '\x86' }
+          Write-Host "New LIB=$newLib"
+          Write-Host "New LIBPATH=$newLibPath"
+          "LIB=$newLib" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "LIBPATH=$newLibPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Setup build environment
         shell: bash
