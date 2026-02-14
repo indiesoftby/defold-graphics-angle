@@ -40,6 +40,40 @@ jobs:
         run: |
           git apply patch/angle.patch
 
+      # Patch defold.cmake to dynamically set LIB env var per cmake invocation.
+      # Defold's sdk_windows.cmake adds /LIBPATH for MSVC libs but fails to
+      # detect Windows SDK lib dirs on GitHub Actions runners. A fixed LIB env
+      # var can't work because build_engine builds host tools (x64) and target
+      # libs (x86) in the same process. This patch reads WindowsSdkDir/Version
+      # (set by ilammy/msvc-dev-cmd) and sets LIB to the correct arch's
+      # um/ and ucrt/ dirs based on TARGET_PLATFORM, before project() runs.
+      - name: Patch CMake for Windows SDK detection
+        shell: bash
+        run: |
+          cat >> scripts/cmake/defold.cmake << 'CMAKE_PATCH'
+
+          # [CI patch] Set Windows SDK lib paths in LIB env var per target arch.
+          if(WIN32 AND NOT "$ENV{WindowsSdkDir}" STREQUAL "")
+              set(_ci_wsdk_arch "x64")
+              if(DEFINED TARGET_PLATFORM)
+                  if(TARGET_PLATFORM STREQUAL "win32" OR TARGET_PLATFORM MATCHES "(^|-)x86($|-)")
+                      set(_ci_wsdk_arch "x86")
+                  endif()
+              endif()
+              set(_ci_wsdk_dir "$ENV{WindowsSdkDir}")
+              set(_ci_wsdk_ver "$ENV{WindowsSDKVersion}")
+              string(REGEX REPLACE "[\\\\/]+$" "" _ci_wsdk_ver "${_ci_wsdk_ver}")
+              set(_ci_wsdk_um "${_ci_wsdk_dir}Lib/${_ci_wsdk_ver}/um/${_ci_wsdk_arch}")
+              set(_ci_wsdk_ucrt "${_ci_wsdk_dir}lib/${_ci_wsdk_ver}/ucrt/${_ci_wsdk_arch}")
+              if(EXISTS "${_ci_wsdk_um}" AND EXISTS "${_ci_wsdk_ucrt}")
+                  set(ENV{LIB} "${_ci_wsdk_um};${_ci_wsdk_ucrt};$ENV{LIB}")
+                  message(STATUS "[CI] Windows SDK LIB set for ${_ci_wsdk_arch}: ${_ci_wsdk_um};${_ci_wsdk_ucrt}")
+              else()
+                  message(WARNING "[CI] Windows SDK dirs not found: ${_ci_wsdk_um}, ${_ci_wsdk_ucrt}")
+              endif()
+          endif()
+          CMAKE_PATCH
+
       - name: Copy ANGLE to packages
         shell: bash
         run: |
@@ -72,25 +106,15 @@ jobs:
         with:
           arch: x64
 
-      # For win32 (x86) target: rewrite LIB/LIBPATH to use x86 lib dirs.
-      # CMake's compiler test at project() uses the LIB env var to find
-      # kernel32.lib etc. With x64 libs the x86 linker fails (LNK4272).
-      # Use PowerShell .Replace() for reliable literal string replacement
-      # (bash echo corrupts \x64 as hex escape).
-      - name: Fix LIB paths for x86 target
-        if: matrix.platform == 'win32'
-        shell: pwsh
+      # Unset LIB/LIBPATH: a fixed-arch LIB breaks cross-compilation because
+      # build_engine builds host tools (x64) and target libs (x86) in one run.
+      # Instead, we patch defold.cmake below to dynamically set LIB per cmake
+      # sub-invocation based on TARGET_PLATFORM, using WindowsSdkDir env var.
+      - name: Unset arch-specific LIB for cross-compilation
+        shell: bash
         run: |
-          Write-Host "Original LIB=$env:LIB"
-          Write-Host "Original LIBPATH=$env:LIBPATH"
-          $newLib = $env:LIB.Replace('\x64\', '\x86\').Replace('\x64;', '\x86;')
-          if ($newLib.EndsWith('\x64')) { $newLib = $newLib.Substring(0, $newLib.Length - 4) + '\x86' }
-          $newLibPath = $env:LIBPATH.Replace('\x64\', '\x86\').Replace('\x64;', '\x86;')
-          if ($newLibPath.EndsWith('\x64')) { $newLibPath = $newLibPath.Substring(0, $newLibPath.Length - 4) + '\x86' }
-          Write-Host "New LIB=$newLib"
-          Write-Host "New LIBPATH=$newLibPath"
-          "LIB=$newLib" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "LIBPATH=$newLibPath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          echo "LIB=" >> "$GITHUB_ENV"
+          echo "LIBPATH=" >> "$GITHUB_ENV"
 
       - name: Setup build environment
         shell: bash
