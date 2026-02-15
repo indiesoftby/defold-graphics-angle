@@ -21,7 +21,7 @@ jobs:
   bld-eng-windows:
     strategy:
       matrix:
-        platform: [x86_64-win32, win32]
+        platform: [x86_64-win32, x86-win32]
     runs-on: windows-2022
     steps:
       - name: Checkout Defold
@@ -47,32 +47,32 @@ jobs:
       # libs (x86) in the same process. This patch reads WindowsSdkDir/Version
       # (set by ilammy/msvc-dev-cmd) and sets LIB to the correct arch's
       # um/ and ucrt/ dirs based on TARGET_PLATFORM, before project() runs.
-      - name: Patch CMake for Windows SDK detection
-        shell: bash
-        run: |
-          cat >> scripts/cmake/defold.cmake << 'CMAKE_PATCH'
+      # - name: Patch CMake for Windows SDK detection
+      #   shell: bash
+      #   run: |
+      #     cat >> scripts/cmake/defold.cmake << 'CMAKE_PATCH'
 
-          # [CI patch] Set Windows SDK lib paths in LIB env var per target arch.
-          if(WIN32 AND NOT "$ENV{WindowsSdkDir}" STREQUAL "")
-              set(_ci_wsdk_arch "x64")
-              if(DEFINED TARGET_PLATFORM)
-                  if(TARGET_PLATFORM STREQUAL "win32" OR TARGET_PLATFORM MATCHES "(^|-)x86($|-)")
-                      set(_ci_wsdk_arch "x86")
-                  endif()
-              endif()
-              set(_ci_wsdk_dir "$ENV{WindowsSdkDir}")
-              set(_ci_wsdk_ver "$ENV{WindowsSDKVersion}")
-              string(REGEX REPLACE "[\\\\/]+$" "" _ci_wsdk_ver "${_ci_wsdk_ver}")
-              set(_ci_wsdk_um "${_ci_wsdk_dir}Lib/${_ci_wsdk_ver}/um/${_ci_wsdk_arch}")
-              set(_ci_wsdk_ucrt "${_ci_wsdk_dir}lib/${_ci_wsdk_ver}/ucrt/${_ci_wsdk_arch}")
-              if(EXISTS "${_ci_wsdk_um}" AND EXISTS "${_ci_wsdk_ucrt}")
-                  set(ENV{LIB} "${_ci_wsdk_um};${_ci_wsdk_ucrt};$ENV{LIB}")
-                  message(STATUS "[CI] Windows SDK LIB set for ${_ci_wsdk_arch}: ${_ci_wsdk_um};${_ci_wsdk_ucrt}")
-              else()
-                  message(WARNING "[CI] Windows SDK dirs not found: ${_ci_wsdk_um}, ${_ci_wsdk_ucrt}")
-              endif()
-          endif()
-          CMAKE_PATCH
+      #     # [CI patch] Set Windows SDK lib paths in LIB env var per target arch.
+      #     if(WIN32 AND NOT "$ENV{WindowsSdkDir}" STREQUAL "")
+      #         set(_ci_wsdk_arch "x64")
+      #         if(DEFINED TARGET_PLATFORM)
+      #             if(TARGET_PLATFORM STREQUAL "win32" OR TARGET_PLATFORM MATCHES "(^|-)x86($|-)")
+      #                 set(_ci_wsdk_arch "x86")
+      #             endif()
+      #         endif()
+      #         set(_ci_wsdk_dir "$ENV{WindowsSdkDir}")
+      #         set(_ci_wsdk_ver "$ENV{WindowsSDKVersion}")
+      #         string(REGEX REPLACE "[\\\\/]+$" "" _ci_wsdk_ver "${_ci_wsdk_ver}")
+      #         set(_ci_wsdk_um "${_ci_wsdk_dir}Lib/${_ci_wsdk_ver}/um/${_ci_wsdk_arch}")
+      #         set(_ci_wsdk_ucrt "${_ci_wsdk_dir}lib/${_ci_wsdk_ver}/ucrt/${_ci_wsdk_arch}")
+      #         if(EXISTS "${_ci_wsdk_um}" AND EXISTS "${_ci_wsdk_ucrt}")
+      #             set(ENV{LIB} "${_ci_wsdk_um};${_ci_wsdk_ucrt};$ENV{LIB}")
+      #             message(STATUS "[CI] Windows SDK LIB set for ${_ci_wsdk_arch}: ${_ci_wsdk_um};${_ci_wsdk_ucrt}")
+      #         else()
+      #             message(WARNING "[CI] Windows SDK dirs not found: ${_ci_wsdk_um}, ${_ci_wsdk_ucrt}")
+      #         endif()
+      #     endif()
+      #     CMAKE_PATCH
 
       - name: Copy ANGLE to packages
         shell: bash
@@ -110,11 +110,11 @@ jobs:
       # build_engine builds host tools (x64) and target libs (x86) in one run.
       # Instead, we patch defold.cmake below to dynamically set LIB per cmake
       # sub-invocation based on TARGET_PLATFORM, using WindowsSdkDir env var.
-      - name: Unset arch-specific LIB for cross-compilation
-        shell: bash
-        run: |
-          echo "LIB=" >> "$GITHUB_ENV"
-          echo "LIBPATH=" >> "$GITHUB_ENV"
+      # - name: Unset arch-specific LIB for cross-compilation
+      #   shell: bash
+      #   run: |
+      #     echo "LIB=" >> "$GITHUB_ENV"
+      #     echo "LIBPATH=" >> "$GITHUB_ENV"
 
       - name: Setup build environment
         shell: bash
