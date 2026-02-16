@@ -103,7 +103,7 @@ jobs:
       # Set up MSVC developer environment (cl.exe, link.exe, rc.exe, INCLUDE, LIB).
       # Use arch: x64 — the host is always x64.
       - name: Setup MSVC developer environment
-        uses: TheMrMilchmann/setup-msvc-dev@v3
+        uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
