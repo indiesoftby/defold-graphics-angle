@@ -21,7 +21,8 @@ jobs:
   bld-eng-windows:
     strategy:
       matrix:
-        platform: [x86_64-win32, x86-win32]
+        platform: [x86_64-win32]
+        # , x86-win32
     runs-on: windows-2022
     steps:
       - name: Checkout Defold
@@ -102,7 +103,7 @@ jobs:
       # Set up MSVC developer environment (cl.exe, link.exe, rc.exe, INCLUDE, LIB).
       # Use arch: x64 — the host is always x64.
       - name: Setup MSVC developer environment
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: TheMrMilchmann/setup-msvc-dev@v3
         with:
           arch: x64
 
