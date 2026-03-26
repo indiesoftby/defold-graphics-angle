@@ -1,23 +1,23 @@
 diff --git a/build_tools/sdk.py b/build_tools/sdk.py
-index 64a4968658..c30ccbdf6e 100644
+index fc93861eb3..78822b57fb 100644
 --- a/build_tools/sdk.py
 +++ b/build_tools/sdk.py
 @@ -72,8 +72,8 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
  # Win32
  
  # The version we have prepackaged
--VERSION_WINDOWS_SDK_10="10.0.20348.0"
--VERSION_WINDOWS_MSVC_2022="14.37.32822"
+-VERSION_WINDOWS_SDK_10="10.0.26100.0"
+-VERSION_WINDOWS_MSVC_2022="14.44.35207"
 +VERSION_WINDOWS_SDK_10=os.environ.get('VERSION_WINDOWS_SDK_10', "10.0.26100.0")
-+VERSION_WINDOWS_MSVC_2022=os.environ.get('VERSION_WINDOWS_MSVC_2022', "14.37.32822")
++VERSION_WINDOWS_MSVC_2022=os.environ.get('VERSION_WINDOWS_MSVC_2022', "14.44.35207")
  PACKAGES_WIN32_TOOLCHAIN=f"Microsoft-Visual-Studio-2022-{VERSION_WINDOWS_MSVC_2022}"
  PACKAGES_WIN32_SDK_10=f"WindowsKits-{VERSION_WINDOWS_SDK_10}"
  
 diff --git a/build_tools/waf_dynamo.py b/build_tools/waf_dynamo.py
-index f5909f9e4c..ba994c7a6f 100644
+index 9a01365c5e..2ad81e11da 100644
 --- a/build_tools/waf_dynamo.py
 +++ b/build_tools/waf_dynamo.py
-@@ -82,7 +82,7 @@ def platform_supports_feature(platform, feature, data):
+@@ -80,7 +80,7 @@ def platform_supports_feature(platform, feature, data):
      if feature == 'opengl_compute':
          return platform not in ['js-web', 'wasm-web', 'wasm_pthread-web', 'x86_64-ios', 'arm64-ios', 'arm64-macos', 'x86_64-macos']
      if feature == 'opengles':
@@ -26,7 +26,7 @@ index f5909f9e4c..ba994c7a6f 100644
      if feature == 'webgpu':
          return platform in ['js-web', 'wasm-web', 'wasm_pthread-web']
      return waf_dynamo_vendor.supports_feature(platform, feature, data)
-@@ -129,6 +129,9 @@ def platform_graphics_libs_and_symbols(platform):
+@@ -127,6 +127,9 @@ def platform_graphics_libs_and_symbols(platform):
      elif platform in ('arm64-linux'):
          use_opengles = True
          use_vulkan = Options.options.with_vulkan
@@ -50,10 +50,10 @@ index db4c1d9920..04a98513f3 100644
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
-index 226ba28c30..ea51cc9329 100644
+index 240cede927..bd00eb6826 100644
 --- a/engine/graphics/src/graphics.cpp
 +++ b/engine/graphics/src/graphics.cpp
-@@ -336,6 +336,31 @@ namespace dmGraphics
+@@ -352,6 +352,31 @@ namespace dmGraphics
      {
          ShaderDesc::Shader* selected_shader = 0x0;
  
@@ -86,7 +86,7 @@ index 226ba28c30..ea51cc9329 100644
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index 15eab478c5..5bfcfa0b8e 100644
+index 8c88680fb6..b8f7455fb1 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -97,7 +97,7 @@ index 15eab478c5..5bfcfa0b8e 100644
  #include <assert.h>
  #include <dlib/dlib.h>
  #include <dlib/log.h>
-@@ -84,116 +85,7 @@
+@@ -85,116 +86,7 @@
  #elif defined (__linux__)
      // NOP
  #elif defined (_WIN32)
@@ -215,7 +215,7 @@ index 15eab478c5..5bfcfa0b8e 100644
  #elif defined(__EMSCRIPTEN__)
      #include <GL/glext.h>
      #if defined GL_ES_VERSION_2_0
-@@ -980,104 +872,6 @@ static void LogFrameBufferError(GLenum status)
+@@ -1282,104 +1174,6 @@ static void LogFrameBufferError(GLenum status)
          assert(_context);
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -317,10 +317,10 @@ index 15eab478c5..5bfcfa0b8e 100644
 -    #undef GET_PROC_ADDRESS
 -#endif
 -
-         context->m_IsGles3Version = 1; // 0 == gles 2, 1 == gles 3
-         context->m_PipelineState  = GetDefaultPipelineState();
- 
-@@ -3022,9 +2816,9 @@ static void LogFrameBufferError(GLenum status)
+         context->m_IsGles3Version   = 1; // 0 == gles 2, 1 == gles 3
+         context->m_PipelineState    = GetDefaultPipelineState();
+         context->m_PipelineStateDirty = context->m_PipelineState;
+@@ -3829,9 +3623,9 @@ static void LogFrameBufferError(GLenum status)
          {
              if (context->m_IsGles3Version)
              {
@@ -332,7 +332,7 @@ index 15eab478c5..5bfcfa0b8e 100644
          }
          else if (shader_type == ShaderDesc::SHADER_TYPE_COMPUTE)
          {
-@@ -5116,6 +4910,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -5566,6 +5360,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
@@ -396,22 +396,22 @@ index 203ac0f0d8..8af501ca22 100755
          conf.env.append_value('LINKFLAGS', ['-lEGL', '-lGLESv1_CM', '-lGLESv2', '-landroid'])
  
 diff --git a/scripts/build.py b/scripts/build.py
-index 213c18064d..7a10b41ca7 100755
+index bb7cb2c744..b81a673a0e 100755
 --- a/scripts/build.py
 +++ b/scripts/build.py
-@@ -219,6 +219,7 @@ PACKAGES_MACOS_ARM64=[
+@@ -220,6 +220,7 @@ PACKAGES_MACOS_ARM64=[
      "SkriBidi-1e8038"]
  
  PACKAGES_WIN32=[
-+    "angle-5fb77159",
++    "angle-06e6c6b5",
      "protobuf-3.20.1",
      "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
-@@ -234,6 +235,7 @@ PACKAGES_WIN32=[
+@@ -235,6 +236,7 @@ PACKAGES_WIN32=[
      "SkriBidi-1e8038"]
  
  PACKAGES_WIN32_64=[
-+    "angle-5fb77159",
++    "angle-06e6c6b5",
      "protobuf-3.20.1",
      "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
