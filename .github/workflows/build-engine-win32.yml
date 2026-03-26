@@ -49,8 +49,8 @@ jobs:
       - name: Copy ANGLE to packages
         shell: bash
         run: |
-          cp patch/angle-5fb77159-x86_64-win32.tar.gz packages/
-          cp patch/angle-5fb77159-win32.tar.gz packages/
+          cp patch/angle-06e6c6b5-x86_64-win32.tar.gz packages/
+          cp patch/angle-06e6c6b5-win32.tar.gz packages/
 
       - name: Download SDKs
         uses: actions/download-artifact@v4
@@ -121,9 +121,9 @@ jobs:
       - name: Extract ANGLE libs into extension
         run: |
           mkdir -p extension/graphics_angle/lib
-          tar -xzf angle-5fb77159-win32.tar.gz -C extension/graphics_angle ./lib
+          tar -xzf angle-06e6c6b5-win32.tar.gz -C extension/graphics_angle ./lib
           mv extension/graphics_angle/lib/win32 extension/graphics_angle/lib/x86-win32
-          tar -xzf angle-5fb77159-x86_64-win32.tar.gz -C extension/graphics_angle ./lib
+          tar -xzf angle-06e6c6b5-x86_64-win32.tar.gz -C extension/graphics_angle ./lib
 
       - name: Copy DLLs to res folders
         shell: bash

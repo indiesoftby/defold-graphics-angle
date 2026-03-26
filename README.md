@@ -36,7 +36,7 @@ If you enable the `Display / Display Device Info` option in `game.project`, you 
 ```
 INFO:GRAPHICS: Device: OpenGL ES
 INFO:GRAPHICS: Renderer: ANGLE (Intel, Intel(R) Arc(TM) B580 Graphics (0x0000E20B) Direct3D11 vs_5_0 ps_5_0, D3D11-32.0.101.6913)
-INFO:GRAPHICS: Version: OpenGL ES 3.0.0 (ANGLE 2.1.25890 git hash: 5fb7715997c4)
+INFO:GRAPHICS: Version: OpenGL ES 3.0.0 (ANGLE <version> <hash>)
 INFO:GRAPHICS: Vendor: Google Inc. (Intel)
 INFO:GRAPHICS: Extensions:
 INFO:GRAPHICS:   GL_AMD_performance_monitor
