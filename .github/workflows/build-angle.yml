@@ -12,8 +12,8 @@ on:
 
 env:
   DEPOT_TOOLS_WIN_TOOLCHAIN: 0
-  ANGLE_REF: chromium/7354
-  ANGLE_VERSION: 5fb77159
+  ANGLE_REF: chromium/7755
+  ANGLE_VERSION: 06e6c6b5
 
 jobs:
   build-angle:
