@@ -1,8 +1,8 @@
 diff --git a/build_tools/sdk.py b/build_tools/sdk.py
-index fc93861eb3..78822b57fb 100644
+index c8e4f43631..5d765d57e7 100644
 --- a/build_tools/sdk.py
 +++ b/build_tools/sdk.py
-@@ -72,8 +72,8 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
+@@ -75,8 +75,8 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
  # Win32
  
  # The version we have prepackaged
@@ -14,7 +14,7 @@ index fc93861eb3..78822b57fb 100644
  PACKAGES_WIN32_SDK_10=f"WindowsKits-{VERSION_WINDOWS_SDK_10}"
  
 diff --git a/build_tools/waf_dynamo.py b/build_tools/waf_dynamo.py
-index 9a01365c5e..2ad81e11da 100644
+index 081565e2c4..d6b9bc4c8b 100644
 --- a/build_tools/waf_dynamo.py
 +++ b/build_tools/waf_dynamo.py
 @@ -80,7 +80,7 @@ def platform_supports_feature(platform, feature, data):
@@ -50,10 +50,10 @@ index db4c1d9920..04a98513f3 100644
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
-index 240cede927..bd00eb6826 100644
+index 856c3f11ec..973cc3510d 100644
 --- a/engine/graphics/src/graphics.cpp
 +++ b/engine/graphics/src/graphics.cpp
-@@ -352,6 +352,31 @@ namespace dmGraphics
+@@ -353,6 +353,31 @@ namespace dmGraphics
      {
          ShaderDesc::Shader* selected_shader = 0x0;
  
@@ -86,7 +86,7 @@ index 240cede927..bd00eb6826 100644
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index 8c88680fb6..b8f7455fb1 100644
+index 91e0ffe41d..179aec830a 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -215,7 +215,7 @@ index 8c88680fb6..b8f7455fb1 100644
  #elif defined(__EMSCRIPTEN__)
      #include <GL/glext.h>
      #if defined GL_ES_VERSION_2_0
-@@ -1282,104 +1174,6 @@ static void LogFrameBufferError(GLenum status)
+@@ -1278,104 +1170,6 @@ static void LogFrameBufferError(GLenum status)
          assert(_context);
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -320,7 +320,7 @@ index 8c88680fb6..b8f7455fb1 100644
          context->m_IsGles3Version   = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState    = GetDefaultPipelineState();
          context->m_PipelineStateDirty = context->m_PipelineState;
-@@ -3829,9 +3623,9 @@ static void LogFrameBufferError(GLenum status)
+@@ -3821,9 +3615,9 @@ static void LogFrameBufferError(GLenum status)
          {
              if (context->m_IsGles3Version)
              {
@@ -332,7 +332,7 @@ index 8c88680fb6..b8f7455fb1 100644
          }
          else if (shader_type == ShaderDesc::SHADER_TYPE_COMPUTE)
          {
-@@ -5566,6 +5360,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -5471,6 +5265,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
@@ -396,18 +396,18 @@ index 203ac0f0d8..8af501ca22 100755
          conf.env.append_value('LINKFLAGS', ['-lEGL', '-lGLESv1_CM', '-lGLESv2', '-landroid'])
  
 diff --git a/scripts/build.py b/scripts/build.py
-index bb7cb2c744..b81a673a0e 100755
+index df4d6fd64a..700b8898e0 100755
 --- a/scripts/build.py
 +++ b/scripts/build.py
-@@ -220,6 +220,7 @@ PACKAGES_MACOS_ARM64=[
-     "SkriBidi-1e8038"]
+@@ -235,6 +235,7 @@ PACKAGES_MACOS_ARM64=[
+     "zipalign"]
  
  PACKAGES_WIN32=[
 +    "angle-06e6c6b5",
      "protobuf-3.20.1",
      "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
-@@ -235,6 +236,7 @@ PACKAGES_WIN32=[
+@@ -250,6 +251,7 @@ PACKAGES_WIN32=[
      "SkriBidi-1e8038"]
  
  PACKAGES_WIN32_64=[
