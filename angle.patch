@@ -1,35 +1,37 @@
 diff --git a/build_tools/sdk.py b/build_tools/sdk.py
-index c8e4f43631..5d765d57e7 100644
+index 40304a1cba..c1c12458cc 100644
 --- a/build_tools/sdk.py
 +++ b/build_tools/sdk.py
-@@ -75,8 +75,8 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
+@@ -83,9 +83,9 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
  # Win32
  
  # The version we have prepackaged
--VERSION_WINDOWS_SDK_10="10.0.26100.0"
--VERSION_WINDOWS_MSVC_2022="14.44.35207"
-+VERSION_WINDOWS_SDK_10=os.environ.get('VERSION_WINDOWS_SDK_10', "10.0.26100.0")
-+VERSION_WINDOWS_MSVC_2022=os.environ.get('VERSION_WINDOWS_MSVC_2022', "14.44.35207")
- PACKAGES_WIN32_TOOLCHAIN=f"Microsoft-Visual-Studio-2022-{VERSION_WINDOWS_MSVC_2022}"
- PACKAGES_WIN32_SDK_10=f"WindowsKits-{VERSION_WINDOWS_SDK_10}"
+-VERSION_WINDOWS_SDK="10.0.28000.0"
+-VISUAL_STUDIO_VERSION="2026"
+-VERSION_WINDOWS_MSVC="14.51.36231"
++VERSION_WINDOWS_SDK=os.environ.get('VERSION_WINDOWS_SDK', "10.0.28000.0")
++VISUAL_STUDIO_VERSION=os.environ.get('VISUAL_STUDIO_VERSION', "2026")
++VERSION_WINDOWS_MSVC=os.environ.get('VERSION_WINDOWS_MSVC', "14.51.36231")
+ PACKAGES_WIN32_TOOLCHAIN=f"Microsoft-Visual-Studio-{VISUAL_STUDIO_VERSION}-{VERSION_WINDOWS_MSVC}"
+ PACKAGES_WIN32_SDK=f"WindowsKits-{VERSION_WINDOWS_SDK}"
  
 diff --git a/build_tools/waf_dynamo.py b/build_tools/waf_dynamo.py
-index 081565e2c4..d6b9bc4c8b 100644
+index e1606fdb1d..823aa30940 100644
 --- a/build_tools/waf_dynamo.py
 +++ b/build_tools/waf_dynamo.py
-@@ -80,7 +80,7 @@ def platform_supports_feature(platform, feature, data):
+@@ -87,7 +87,7 @@ def platform_supports_feature(platform, feature, data):
      if feature == 'opengl_compute':
-         return platform not in ['js-web', 'wasm-web', 'wasm_pthread-web', 'x86_64-ios', 'arm64-ios', 'arm64-macos', 'x86_64-macos']
+         return platform not in ['wasm-web', 'wasm_pthread-web', 'x86_64-ios', 'arm64-ios', 'arm64-macos', 'x86_64-macos']
      if feature == 'opengles':
--        return platform in ['arm64-linux']
-+        return platform in ['arm64-linux', 'x86_64-win32', 'win32']
+-        return platform in ['arm64-linux', 'armv7-android', 'arm64-android']
++        return platform in ['arm64-linux', 'armv7-android', 'arm64-android', 'x86_64-win32', 'win32']
      if feature == 'webgpu':
-         return platform in ['js-web', 'wasm-web', 'wasm_pthread-web']
+         return platform in ['wasm-web', 'wasm_pthread-web']
      return waf_dynamo_vendor.supports_feature(platform, feature, data)
-@@ -127,6 +127,9 @@ def platform_graphics_libs_and_symbols(platform):
-     elif platform in ('arm64-linux'):
-         use_opengles = True
-         use_vulkan = Options.options.with_vulkan
+@@ -352,6 +352,9 @@ def platform_graphics_libs_and_symbols(platform):
+     elif platform in ('armv7-android', 'arm64-android'):
+         use_opengles = Options.options.with_opengl or not Options.options.with_vulkan
+         use_vulkan = Options.options.with_vulkan or not Options.options.with_opengl
 +    elif platform in ('x86_64-win32', 'win32'):
 +        use_opengles = True
 +        use_vulkan = Options.options.with_vulkan
@@ -37,10 +39,10 @@ index 081565e2c4..d6b9bc4c8b 100644
          use_opengl = True
          use_vulkan = Options.options.with_vulkan
 diff --git a/engine/engine/wscript b/engine/engine/wscript
-index db4c1d9920..04a98513f3 100644
+index 3ef5c86588..e0ef50882c 100644
 --- a/engine/engine/wscript
 +++ b/engine/engine/wscript
-@@ -118,7 +118,7 @@ def configure(conf):
+@@ -121,7 +121,7 @@ def configure(conf):
          conf.env['STLIB_CPP_RUNTIME'] = 'c++_static'
  
      elif target_os == TargetOS.WINDOWS:
@@ -50,10 +52,10 @@ index db4c1d9920..04a98513f3 100644
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
-index 856c3f11ec..973cc3510d 100644
+index 5a4677fe28..5a17a34265 100644
 --- a/engine/graphics/src/graphics.cpp
 +++ b/engine/graphics/src/graphics.cpp
-@@ -353,6 +353,31 @@ namespace dmGraphics
+@@ -349,6 +349,31 @@ namespace dmGraphics
      {
          ShaderDesc::Shader* selected_shader = 0x0;
  
@@ -86,7 +88,7 @@ index 856c3f11ec..973cc3510d 100644
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index 91e0ffe41d..179aec830a 100644
+index ab142d9d5e..8b53614430 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -97,7 +99,7 @@ index 91e0ffe41d..179aec830a 100644
  #include <assert.h>
  #include <dlib/dlib.h>
  #include <dlib/log.h>
-@@ -85,116 +86,7 @@
+@@ -85,121 +86,7 @@
  #elif defined (__linux__)
      // NOP
  #elif defined (_WIN32)
@@ -129,6 +131,8 @@ index 91e0ffe41d..179aec830a 100644
 -    typedef void (APIENTRY * PFNGLACTIVETEXTUREPROC) (GLenum);
 -    typedef void (APIENTRY * PFNGLSTENCILFUNCSEPARATEPROC) (GLenum, GLenum, GLint, GLuint);
 -    typedef void (APIENTRY * PFNGLSTENCILOPSEPARATEPROC) (GLenum, GLenum, GLenum, GLenum);
+-    typedef void (APIENTRY * PFNGLBLENDFUNCSEPARATEPROC) (GLenum, GLenum, GLenum, GLenum);
+-    typedef void (APIENTRY * PFNGLBLENDEQUATIONSEPARATEPROC) (GLenum, GLenum);
 -    typedef void (APIENTRY * PFNGLDRAWBUFFERSPROC) (GLsizei, const GLenum*);
 -    typedef GLint (APIENTRY * PFNGLGETFRAGDATALOCATIONPROC) (GLuint, const char*);
 -    typedef void (APIENTRY * PFNGLBINDFRAGDATALOCATIONPROC) (GLuint, GLuint, const char*);
@@ -158,6 +162,8 @@ index 91e0ffe41d..179aec830a 100644
 -    PFNGLCHECKFRAMEBUFFERSTATUSPROC glCheckFramebufferStatus = NULL;
 -    PFNGLSTENCILFUNCSEPARATEPROC glStencilFuncSeparate = NULL;
 -    PFNGLSTENCILOPSEPARATEPROC glStencilOpSeparate = NULL;
+-    PFNGLBLENDFUNCSEPARATEPROC glBlendFuncSeparate = NULL;
+-    PFNGLBLENDEQUATIONSEPARATEPROC glBlendEquationSeparate = NULL;
 -
 -    PFNGLGETACTIVEATTRIBPROC glGetActiveAttrib = NULL;
 -    PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation = NULL;
@@ -193,6 +199,7 @@ index 91e0ffe41d..179aec830a 100644
 -    // Uniform buffer objects
 -    PFNGLBINDBUFFERBASEPROC          glBindBufferBase          = NULL;
 -    PFNGLBUFFERDATAPROC              glBufferData              = NULL;
+-    PFNGLGETINTEGERI_VPROC           glGetIntegeri_v           = NULL;
 -    PFNGLGETUNIFORMBLOCKINDEXPROC    glGetUniformBlockIndex    = NULL;
 -    PFNGLGETACTIVEUNIFORMBLOCKIVPROC glGetActiveUniformBlockiv = NULL;
 -    PFNGLGETACTIVEUNIFORMSIVPROC     glGetActiveUniformsiv     = NULL;
@@ -215,7 +222,7 @@ index 91e0ffe41d..179aec830a 100644
  #elif defined(__EMSCRIPTEN__)
      #include <GL/glext.h>
      #if defined GL_ES_VERSION_2_0
-@@ -1278,104 +1170,6 @@ static void LogFrameBufferError(GLenum status)
+@@ -1328,107 +1215,6 @@ static void LogFrameBufferError(GLenum status)
          assert(_context);
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -284,6 +291,8 @@ index 91e0ffe41d..179aec830a 100644
 -        GET_PROC_ADDRESS(glUniform1i, "glUniform1i", PFNGLUNIFORM1IPROC);
 -        GET_PROC_ADDRESS(glStencilOpSeparate, "glStencilOpSeparate", PFNGLSTENCILOPSEPARATEPROC);
 -        GET_PROC_ADDRESS(glStencilFuncSeparate, "glStencilFuncSeparate", PFNGLSTENCILFUNCSEPARATEPROC);
+-        GET_PROC_ADDRESS(glBlendFuncSeparate, "glBlendFuncSeparate", PFNGLBLENDFUNCSEPARATEPROC);
+-        GET_PROC_ADDRESS(glBlendEquationSeparate, "glBlendEquationSeparate", PFNGLBLENDEQUATIONSEPARATEPROC);
 -        GET_PROC_ADDRESS(glTexSubImage3D, "glTexSubImage3D", PFNGLTEXSUBIMAGE3DPROC);
 -        GET_PROC_ADDRESS(glTexImage3D, "glTexImage3D", PFNGLTEXIMAGE3DPROC);
 -        GET_PROC_ADDRESS(glCompressedTexImage3D, "glCompressedTexImage3D", PFNGLCOMPRESSEDTEXIMAGE3DPROC);
@@ -295,6 +304,7 @@ index 91e0ffe41d..179aec830a 100644
 -
 -        GET_PROC_ADDRESS(glBindBufferBase, "glBindBufferBase", PFNGLBINDBUFFERBASEPROC);
 -        GET_PROC_ADDRESS(glBufferData, "glBufferData", PFNGLBUFFERDATAPROC);
+-        GET_PROC_ADDRESS(glGetIntegeri_v, "glGetIntegeri_v", PFNGLGETINTEGERI_VPROC);
 -        GET_PROC_ADDRESS(glGetUniformBlockIndex, "glGetUniformBlockIndex", PFNGLGETUNIFORMBLOCKINDEXPROC);
 -        GET_PROC_ADDRESS(glGetActiveUniformBlockiv, "glGetActiveUniformBlockiv", PFNGLGETACTIVEUNIFORMBLOCKIVPROC);
 -        GET_PROC_ADDRESS(glGetActiveUniformsiv, "glGetActiveUniformsiv", PFNGLGETACTIVEUNIFORMSIVPROC);
@@ -320,7 +330,7 @@ index 91e0ffe41d..179aec830a 100644
          context->m_IsGles3Version   = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState    = GetDefaultPipelineState();
          context->m_PipelineStateDirty = context->m_PipelineState;
-@@ -3821,9 +3615,9 @@ static void LogFrameBufferError(GLenum status)
+@@ -3994,9 +3780,9 @@ static void LogFrameBufferError(GLenum status)
          {
              if (context->m_IsGles3Version)
              {
@@ -332,7 +342,7 @@ index 91e0ffe41d..179aec830a 100644
          }
          else if (shader_type == ShaderDesc::SHADER_TYPE_COMPUTE)
          {
-@@ -5471,6 +5265,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -5610,6 +5396,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
@@ -369,7 +379,7 @@ index 1e190182a5..28a1cdae3f 100644
  #elif defined (ANDROID)
  #define GL_GLEXT_PROTOTYPES
 diff --git a/engine/graphics/wscript b/engine/graphics/wscript
-index 91758f3a03..9a21b79010 100644
+index 73ebcf8b8c..7834eac6b2 100644
 --- a/engine/graphics/wscript
 +++ b/engine/graphics/wscript
 @@ -59,7 +59,7 @@ def configure(conf):
@@ -382,7 +392,7 @@ index 91758f3a03..9a21b79010 100644
      conf.env.append_value('INCLUDES', "../src")
      conf.env.append_value('INCLUDES', os.path.join(dynamo_ext, "include"))
 diff --git a/engine/tools/wscript b/engine/tools/wscript
-index 203ac0f0d8..8af501ca22 100755
+index 63def42bdc..95c5b29efe 100755
 --- a/engine/tools/wscript
 +++ b/engine/tools/wscript
 @@ -48,7 +48,8 @@ def configure(conf):
@@ -396,10 +406,10 @@ index 203ac0f0d8..8af501ca22 100755
          conf.env.append_value('LINKFLAGS', ['-lEGL', '-lGLESv1_CM', '-lGLESv2', '-landroid'])
  
 diff --git a/scripts/build.py b/scripts/build.py
-index df4d6fd64a..700b8898e0 100755
+index 10bdc90cb7..b39aa3d218 100755
 --- a/scripts/build.py
 +++ b/scripts/build.py
-@@ -235,6 +235,7 @@ PACKAGES_MACOS_ARM64=[
+@@ -237,6 +237,7 @@ PACKAGES_MACOS_ARM64=[
      "zipalign"]
  
  PACKAGES_WIN32=[
@@ -407,7 +417,7 @@ index df4d6fd64a..700b8898e0 100755
      "protobuf-3.20.1",
      "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
-@@ -250,6 +251,7 @@ PACKAGES_WIN32=[
+@@ -252,6 +253,7 @@ PACKAGES_WIN32=[
      "SkriBidi-1e8038"]
  
  PACKAGES_WIN32_64=[
