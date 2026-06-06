@@ -6,11 +6,11 @@ on:
   workflow_dispatch:
 
 env:
-  BUILD_BRANCH: 1.10.4
+  BUILD_BRANCH: ${{ vars.BUILD_BRANCH }}
 
 jobs:
   pkg-win32-sdk:
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
 
     steps:
       - name: Checkout Defold

@@ -63,7 +63,7 @@ jobs:
         run: ls -l local_sdks
 
       - name: Install Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
           python-version: 3.12
 
@@ -74,7 +74,7 @@ jobs:
           distribution: temurin
 
       - name: Install CMake
-        uses: lukka/get-cmake@v4.1.1
+        uses: lukka/get-cmake@591817e96fcad43505fb4eae36172462abb3a42e
 
       - name: Setup dotnet
         uses: actions/setup-dotnet@v4
