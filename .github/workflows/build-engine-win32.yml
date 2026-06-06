@@ -20,8 +20,8 @@ env:
   #   `WIN32_SDK_RUN_ID` = copy-paste from the run id of the `package-win32-sdk.yml` run, i.e.
   #   "https://github.com/example/repo/actions/runs/12397740775" <- 12397740775 is the run id
   WIN32_SDK_RUN_ID: ${{ vars.WIN32_SDK_RUN_ID }}
-  VERSION_WINDOWS_SDK_10: ${{ vars.VERSION_WINDOWS_SDK_10 }}
-  VERSION_WINDOWS_MSVC_2022: ${{ vars.VERSION_WINDOWS_MSVC_2022 }}
+  VERSION_WINDOWS_SDK: ${{ vars.VERSION_WINDOWS_SDK }}
+  VERSION_WINDOWS_MSVC: ${{ vars.VERSION_WINDOWS_MSVC }}
 
 jobs:
   bld-eng-windows:
