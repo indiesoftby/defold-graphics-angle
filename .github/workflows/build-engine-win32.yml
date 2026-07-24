@@ -27,8 +27,12 @@ jobs:
   bld-eng-windows:
     strategy:
       matrix:
-        platform: [x86_64-win32, win32]
-    runs-on: windows-2022
+        include:
+          - platform: x86_64-win32
+            artifact_platform: x86_64-win32
+          - platform: win32
+            artifact_platform: x86-win32
+    runs-on: windows-2025-vs2026
     steps:
       - name: Checkout Defold
         uses: actions/checkout@v4
@@ -94,8 +98,8 @@ jobs:
         with:
           name: defold-${{ matrix.platform }}
           path: |
-            tmp/dynamo_home/bin/${{ matrix.platform }}
-            tmp/dynamo_home/lib/${{ matrix.platform }}
+            tmp/dynamo_home/bin/${{ matrix.artifact_platform }}
+            tmp/dynamo_home/lib/${{ matrix.artifact_platform }}
 
   package-extension:
     needs: bld-eng-windows
@@ -135,7 +139,7 @@ jobs:
 
       - name: Prepare extension lib folders and copy libgraphics_opengles.lib
         run: |
-          cp artifacts/defold-win32/lib/win32/libgraphics_opengles.lib extension/graphics_angle/lib/x86-win32/
+          cp artifacts/defold-win32/lib/x86-win32/libgraphics_opengles.lib extension/graphics_angle/lib/x86-win32/
           cp artifacts/defold-x86_64-win32/lib/x86_64-win32/libgraphics_opengles.lib extension/graphics_angle/lib/x86_64-win32/
 
       - name: Zip extension folder

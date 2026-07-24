@@ -25,7 +25,7 @@ jobs:
             target_cpu: x64
           - platform: win32
             target_cpu: x86
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
     steps:
       # The point is to checkout from Google sources, since Github version is just a mirror.
       - name: Checkout ANGLE
