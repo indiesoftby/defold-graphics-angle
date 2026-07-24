@@ -51,6 +51,57 @@ index b80a8d583d..021df90350 100644
  
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
+diff --git a/engine/gamesys/src/gamesys/resources/res_shader_program.cpp b/engine/gamesys/src/gamesys/resources/res_shader_program.cpp
+index 752aeb6c1d..44fe085e8d 100644
+--- a/engine/gamesys/src/gamesys/resources/res_shader_program.cpp
++++ b/engine/gamesys/src/gamesys/resources/res_shader_program.cpp
+@@ -18,8 +18,46 @@
+ 
+ namespace dmGameSystem
+ {
++    static const char* ShaderLanguageLiteral(dmGraphics::ShaderDesc::Language language)
++    {
++        switch (language)
++        {
++            case dmGraphics::ShaderDesc::LANGUAGE_GLSL_SM120: return "GLSL_SM120";
++            case dmGraphics::ShaderDesc::LANGUAGE_GLES_SM100: return "GLES_SM100";
++            case dmGraphics::ShaderDesc::LANGUAGE_GLES_SM300: return "GLES_SM300";
++            case dmGraphics::ShaderDesc::LANGUAGE_SPIRV:      return "SPIRV";
++            case dmGraphics::ShaderDesc::LANGUAGE_GLSL_SM430: return "GLSL_SM430";
++            case dmGraphics::ShaderDesc::LANGUAGE_GLSL_SM330: return "GLSL_SM330";
++            case dmGraphics::ShaderDesc::LANGUAGE_WGSL:       return "WGSL";
++            case dmGraphics::ShaderDesc::LANGUAGE_HLSL_50:    return "HLSL_50";
++            case dmGraphics::ShaderDesc::LANGUAGE_HLSL_51:    return "HLSL_51";
++            case dmGraphics::ShaderDesc::LANGUAGE_MSL_22:    return "MSL_22";
++            default:                                          return "<unknown>";
++        }
++    }
++
++    static const char* ShaderTypeLiteral(dmGraphics::ShaderDesc::ShaderType shader_type)
++    {
++        switch (shader_type)
++        {
++            case dmGraphics::ShaderDesc::SHADER_TYPE_VERTEX:   return "vertex";
++            case dmGraphics::ShaderDesc::SHADER_TYPE_FRAGMENT: return "fragment";
++            case dmGraphics::ShaderDesc::SHADER_TYPE_COMPUTE:  return "compute";
++            default:                                           return "<unknown>";
++        }
++    }
++
+     static dmResource::Result AcquireResources(dmGraphics::HContext context, dmResource::HFactory factory, const char* filename, dmGraphics::ShaderDesc* ddf, dmGraphics::HProgram* program)
+     {
++        dmLogInfo("[SHADER_DEBUG] Loading shader program '%s': ShaderDesc entries=%u", filename, ddf->m_Shaders.m_Count);
++        for (uint32_t i = 0; i < ddf->m_Shaders.m_Count; ++i)
++        {
++            const dmGraphics::ShaderDesc::Shader& shader = ddf->m_Shaders.m_Data[i];
++            dmLogInfo("[SHADER_DEBUG]   Shader[%u]: type=%s language=%s source_bytes=%u variant_texture_array=%s",
++                      i, ShaderTypeLiteral(shader.m_ShaderType), ShaderLanguageLiteral(shader.m_Language),
++                      shader.m_Source.m_Count, shader.m_VariantTextureArray ? "yes" : "no");
++        }
++
+         char error_buffer[1024] = {};
+         dmGraphics::HProgram prog = dmGraphics::NewProgram(context, ddf, error_buffer, sizeof(error_buffer));
+         if (prog == 0)
 diff --git a/engine/graphics/CMakeLists.txt b/engine/graphics/CMakeLists.txt
 index 38a7ffe5a3..9e3a1abde3 100644
 --- a/engine/graphics/CMakeLists.txt
@@ -70,13 +121,50 @@ index 38a7ffe5a3..9e3a1abde3 100644
    set(GRAPHICS_PLATFORM_SUPPORTS_DX12 ON)
  endif()
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
-index 63682194df..ec273c9d4e 100644
+index 63682194df..d8139b7a00 100644
 --- a/engine/graphics/src/graphics.cpp
 +++ b/engine/graphics/src/graphics.cpp
-@@ -368,6 +368,31 @@ namespace dmGraphics
+@@ -305,6 +305,17 @@ namespace dmGraphics
+         return "<unknown ShaderDesc::Language>";
+     }
+ 
++    static const char* GetShaderTypeLiteral(ShaderDesc::ShaderType shader_type)
++    {
++        switch(shader_type)
++        {
++            case ShaderDesc::SHADER_TYPE_VERTEX:   return "vertex";
++            case ShaderDesc::SHADER_TYPE_FRAGMENT: return "fragment";
++            case ShaderDesc::SHADER_TYPE_COMPUTE:  return "compute";
++            default:                               return "<unknown shader type>";
++        }
++    }
++
+     #undef SHADERDESC_ENUM_TO_STR_CASE
+ 
+ 
+@@ -368,6 +379,54 @@ namespace dmGraphics
      {
          ShaderDesc::Shader* selected_shader = 0x0;
  
++        dmLogInfo("[SHADER_DEBUG] Looking for %s shader in ShaderDesc (%u entries), texture-array feature=%s",
++                  GetShaderTypeLiteral(shader_type), shader_desc->m_Shaders.m_Count,
++                  IsContextFeatureSupported(context, CONTEXT_FEATURE_TEXTURE_ARRAY) ? "supported" : "unsupported");
++
++        for(uint32_t i = 0; i < shader_desc->m_Shaders.m_Count; ++i)
++        {
++            ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
++            if (shader->m_ShaderType != shader_type)
++            {
++                continue;
++            }
++
++            dmLogInfo("[SHADER_DEBUG] Candidate[%u] type=%s language=%s source_bytes=%u variant_texture_array=%s supported=%s",
++                      i, GetShaderTypeLiteral(shader->m_ShaderType),
++                      GetShaderProgramLanguageLiteral(shader->m_Language), shader->m_Source.m_Count,
++                      shader->m_VariantTextureArray ? "yes" : "no",
++                      IsShaderLanguageSupported(context, shader->m_Language, shader->m_ShaderType) ? "yes" : "no");
++        }
++
 +        // Prefer GLES SM300 shaders if available (e.g. for GLES3/WebGL2 contexts).
 +        for(uint32_t i = 0; i < shader_desc->m_Shaders.m_Count; ++i)
 +        {
@@ -93,11 +181,15 @@ index 63682194df..ec273c9d4e 100644
 +                // Only select this variant if we don't support texture arrays natively
 +                if (!IsContextFeatureSupported(context, CONTEXT_FEATURE_TEXTURE_ARRAY))
 +                {
++                    dmLogInfo("[SHADER_DEBUG] Selected %s shader candidate[%u]: %s texture-array fallback",
++                              GetShaderTypeLiteral(shader_type), i, GetShaderProgramLanguageLiteral(shader->m_Language));
 +                    return shader;
 +                }
 +            }
 +            else
 +            {
++                dmLogInfo("[SHADER_DEBUG] Selected %s shader candidate[%u]: preferred %s",
++                          GetShaderTypeLiteral(shader_type), i, GetShaderProgramLanguageLiteral(shader->m_Language));
 +                return shader;
 +            }
 +        }
@@ -105,8 +197,80 @@ index 63682194df..ec273c9d4e 100644
          for(uint32_t i = 0; i < shader_desc->m_Shaders.m_Count; ++i)
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
+@@ -381,6 +440,8 @@ namespace dmGraphics
+                 // Only select this variant if we don't support texture arrays natively
+                 if (!IsContextFeatureSupported(context, CONTEXT_FEATURE_TEXTURE_ARRAY))
+                 {
++                    dmLogInfo("[SHADER_DEBUG] Selected %s shader candidate[%u]: %s texture-array fallback",
++                              GetShaderTypeLiteral(shader_type), i, GetShaderProgramLanguageLiteral(shader->m_Language));
+                     return shader;
+                 }
+             }
+@@ -389,17 +450,31 @@ namespace dmGraphics
+                 selected_shader = shader;
+             }
+         }
++        if (selected_shader)
++        {
++            dmLogInfo("[SHADER_DEBUG] Selected %s shader: %s (last compatible non-fallback candidate)",
++                      GetShaderTypeLiteral(shader_type), GetShaderProgramLanguageLiteral(selected_shader->m_Language));
++        }
++        else
++        {
++            dmLogError("[SHADER_DEBUG] No compatible %s shader found in ShaderDesc", GetShaderTypeLiteral(shader_type));
++        }
+         return selected_shader;
+     }
+ 
+     bool GetShaderProgram(HContext context, ShaderDesc* shader_desc, ShaderDesc::Shader** vp, ShaderDesc::Shader** fp, ShaderDesc::Shader** cp)
+     {
+         assert(shader_desc);
++        dmLogInfo("[SHADER_DEBUG] Resolving shader program from ShaderDesc=%p with %u shader entries",
++                  shader_desc, shader_desc->m_Shaders.m_Count);
+         ShaderDesc::Shader* selected_shader_vp = GetShader(context, shader_desc, ShaderDesc::SHADER_TYPE_VERTEX);
+         ShaderDesc::Shader* selected_shader_fp = GetShader(context, shader_desc, ShaderDesc::SHADER_TYPE_FRAGMENT);
+ 
+         if (selected_shader_vp && selected_shader_fp)
+         {
++            dmLogInfo("[SHADER_DEBUG] Resolved graphics program: vertex=%s (%u bytes), fragment=%s (%u bytes)",
++                      GetShaderProgramLanguageLiteral(selected_shader_vp->m_Language), selected_shader_vp->m_Source.m_Count,
++                      GetShaderProgramLanguageLiteral(selected_shader_fp->m_Language), selected_shader_fp->m_Source.m_Count);
+             *vp = selected_shader_vp;
+             *fp = selected_shader_fp;
+             return true;
+@@ -408,6 +483,8 @@ namespace dmGraphics
+         ShaderDesc::Shader* selected_shader = GetShader(context, shader_desc, ShaderDesc::SHADER_TYPE_COMPUTE);
+         if (selected_shader)
+         {
++            dmLogInfo("[SHADER_DEBUG] Resolved compute program: %s (%u bytes)",
++                      GetShaderProgramLanguageLiteral(selected_shader->m_Language), selected_shader->m_Source.m_Count);
+             *cp = selected_shader;
+             return true;
+         }
+@@ -418,7 +495,8 @@ namespace dmGraphics
+             extra_msg = "Reason: Compute shaders are not supported.";
+         }
+ 
+-        dmLogError("Unable to get a valid shader from a ShaderDesc for this context. %s", extra_msg);
++        dmLogError("Unable to get a valid shader from a ShaderDesc for this context. %s ShaderDesc entries=%u",
++                   extra_msg, shader_desc->m_Shaders.m_Count);
+         return 0;
+     }
+ 
+diff --git a/engine/graphics/src/graphics.h b/engine/graphics/src/graphics.h
+index 947733f350..4a48c626b9 100644
+--- a/engine/graphics/src/graphics.h
++++ b/engine/graphics/src/graphics.h
+@@ -520,6 +520,7 @@ namespace dmGraphics
+ 
+     uint32_t    GetTypeSize(Type type);
+     const char* GetGraphicsTypeLiteral(Type type);
++    const char* GetShaderProgramLanguageLiteral(ShaderDesc::Language language);
+ 
+     static inline HAssetHandle MakeAssetHandle(HOpaqueHandle opaque_handle, AssetType asset_type)
+     {
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index eff50fc44b..d60bf03256 100644
+index eff50fc44b..cc98c5680e 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -348,7 +512,143 @@ index eff50fc44b..d60bf03256 100644
          context->m_IsGles3Version   = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState    = GetDefaultPipelineState();
          context->m_PipelineStateDirty = context->m_PipelineState;
-@@ -3996,9 +3782,9 @@ static void LogFrameBufferError(GLenum status)
+@@ -1491,6 +1277,11 @@ static void LogFrameBufferError(GLenum status)
+     #endif
+ #endif
+ 
++        dmLogInfo("[SHADER_DEBUG] OpenGL context shader mode: language=%s gles_version=%s renderer=%s version=%s",
++                  context->m_IsShaderLanguageGles ? "GLES" : "GLSL",
++                  context->m_IsGles3Version ? "3+" : "2",
++                  (const char*) glGetString(GL_RENDERER), (const char*) glGetString(GL_VERSION));
++
+ #if defined(__EMSCRIPTEN__)
+         EMSCRIPTEN_WEBGL_CONTEXT_HANDLE emscripten_ctx = emscripten_webgl_get_current_context();
+         assert(emscripten_ctx != 0 && "Unable to get GL context from emscripten.");
+@@ -3116,6 +2907,16 @@ static void LogFrameBufferError(GLenum status)
+ 
+     static GLuint DoCreateShader(HContext _context, GLenum type, const void* program, uint32_t program_size, char* error_buffer, uint32_t error_buffer_size)
+     {
++        const char* type_str = "unknown";
++        switch(type)
++        {
++            case GL_VERTEX_SHADER:             type_str = "vertex"; break;
++            case GL_FRAGMENT_SHADER:           type_str = "fragment"; break;
++            case DMGRAPHICS_TYPE_COMPUTE_SHADER: type_str = "compute"; break;
++            default: break;
++        }
++        dmLogInfo("[SHADER_DEBUG] OpenGL compile begin: type=%s source_bytes=%u", type_str, program_size);
++
+         GLuint shader_id = glCreateShader(type);
+         CHECK_GL_ERROR;
+         GLint size = program_size;
+@@ -3128,25 +2929,8 @@ static void LogFrameBufferError(GLenum status)
+         glGetShaderiv(shader_id, GL_COMPILE_STATUS, &status);
+         if (status == 0)
+         {
+-            const char* type_str = "";
+-            switch(type)
+-            {
+-                case GL_VERTEX_SHADER:
+-                    type_str = "vertex";
+-                    break;
+-                case GL_FRAGMENT_SHADER:
+-                    type_str = "fragment";
+-                    break;
+-                case DMGRAPHICS_TYPE_COMPUTE_SHADER:
+-                    type_str = "compute";
+-                    break;
+-                default:
+-                    break;
+-            }
+-
+             char* log_str = 0;
+ 
+-#ifndef NDEBUG
+             GLint logLength;
+             glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &logLength);
+             if (logLength > 0)
+@@ -3154,7 +2938,8 @@ static void LogFrameBufferError(GLenum status)
+                 log_str = (GLchar *)malloc(logLength);
+                 glGetShaderInfoLog(shader_id, logLength, &logLength, log_str);
+             }
+-#endif
++            dmLogError("[SHADER_DEBUG] OpenGL compile failed: type=%s source_bytes=%u log=%s",
++                       type_str, program_size, log_str ? log_str : "<no info log>");
+             if (error_buffer)
+             {
+                 dmSnPrintf(error_buffer, error_buffer_size, "Unable to compile %s shader.\nError: %s", type_str, log_str == 0 ? "Unknown" : log_str);
+@@ -3167,12 +2952,17 @@ static void LogFrameBufferError(GLenum status)
+             return 0;
+         }
+ 
++        dmLogInfo("[SHADER_DEBUG] OpenGL compile succeeded: type=%s source_bytes=%u shader_id=%u", type_str, program_size, shader_id);
++
+         return shader_id;
+     }
+ 
+     static OpenGLShader* CreateShader(HContext _context, GLenum type, ShaderDesc::Shader* ddf_shader, char* error_buffer, uint32_t error_buffer_size)
+     {
+         OpenGLContext* context = (OpenGLContext*) _context;
++        dmLogInfo("[SHADER_DEBUG] Creating OpenGL shader: language=%s type=%d source_bytes=%u variant_texture_array=%s",
++                  dmGraphics::GetShaderProgramLanguageLiteral(ddf_shader->m_Language), ddf_shader->m_ShaderType,
++                  ddf_shader->m_Source.m_Count, ddf_shader->m_VariantTextureArray ? "yes" : "no");
+         GLuint shader_id = DoCreateShader(_context, type, ddf_shader->m_Source.m_Data, ddf_shader->m_Source.m_Count, error_buffer, error_buffer_size);
+         if (!shader_id)
+         {
+@@ -3654,20 +3444,19 @@ static void LogFrameBufferError(GLenum status)
+ 
+         if (status == 0)
+         {
+-            dmLogError("Unable to link program.");
+-#ifndef NDEBUG
++            dmLogError("[SHADER_DEBUG] Unable to link program.");
+             GLint logLength;
+             glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
+             if (logLength > 0)
+             {
+                 GLchar *log = (GLchar*) malloc(logLength);
+                 glGetProgramInfoLog(program, logLength, &logLength, log);
+-                dmLogWarning("%s\n", log);
++                dmLogError("[SHADER_DEBUG] Program link log: %s", log);
+                 free(log);
+             }
+-#endif
+             return false;
+         }
++        dmLogInfo("[SHADER_DEBUG] Program link succeeded: program_id=%u", program);
+         return true;
+     }
+ 
+@@ -3779,9 +3568,13 @@ static void LogFrameBufferError(GLenum status)
+ 
+         if (!GetShaderProgram(_context, ddf, &ddf_vp, &ddf_fp, &ddf_cp))
+         {
++            dmLogError("[SHADER_DEBUG] OpenGLNewProgram: shader selection failed");
+             return 0;
+         }
+ 
++        dmLogInfo("[SHADER_DEBUG] OpenGLNewProgram: selected vertex=%p fragment=%p compute=%p",
++                  ddf_vp, ddf_fp, ddf_cp);
++
+         OpenGLContext* context = (OpenGLContext*) _context;
+         OpenGLProgram* program = new OpenGLProgram();
+ 
+@@ -3805,6 +3598,14 @@ static void LogFrameBufferError(GLenum status)
+         {
+             OpenGLShader* vertex_shader = CreateShader(_context, GL_VERTEX_SHADER, ddf_vp, error_buffer, error_buffer_size);
+             OpenGLShader* fragment_shader = CreateShader(_context, GL_FRAGMENT_SHADER, ddf_fp, error_buffer, error_buffer_size);
++            if (!vertex_shader || !fragment_shader)
++            {
++                dmLogError("[SHADER_DEBUG] OpenGLNewProgram: shader compilation failed before link (vertex=%p fragment=%p)",
++                           vertex_shader, fragment_shader);
++                DeleteShader(context, vertex_shader);
++                DeleteShader(context, fragment_shader);
++                return 0;
++            }
+             if (!SetupGraphicsProgram(context, program, vertex_shader, fragment_shader))
+             {
+                 DeleteShader(context, vertex_shader);
+@@ -3996,9 +3797,9 @@ static void LogFrameBufferError(GLenum status)
          {
              if (context->m_IsGles3Version)
              {
@@ -360,7 +660,7 @@ index eff50fc44b..d60bf03256 100644
          }
          else if (shader_type == ShaderDesc::SHADER_TYPE_COMPUTE)
          {
-@@ -5553,6 +5339,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -5553,6 +5354,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
