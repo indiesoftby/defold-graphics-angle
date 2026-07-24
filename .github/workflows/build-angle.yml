@@ -73,7 +73,7 @@ jobs:
           rm -rf angle_archive
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: angle-${{ env.ANGLE_VERSION }}-${{ matrix.platform }}
           path: |

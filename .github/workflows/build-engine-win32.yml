@@ -35,13 +35,13 @@ jobs:
     runs-on: windows-2025-vs2026
     steps:
       - name: Checkout Defold
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: defold/defold
           ref: ${{env.BUILD_BRANCH}}
 
       - name: Checkout the patch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: patch
 
@@ -57,7 +57,7 @@ jobs:
           cp patch/angle-06e6c6b5-win32.tar.gz packages/
 
       - name: Download SDKs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: local_sdks
           path: local_sdks
@@ -72,7 +72,7 @@ jobs:
           python-version: 3.12
 
       - name: Install Java
-        uses: actions/setup-java@99b8673ff64fbf99d8d325f52d9a5bdedb8483e9
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95
         with:
           java-version: '25'
           distribution: temurin
@@ -81,7 +81,7 @@ jobs:
         uses: lukka/get-cmake@591817e96fcad43505fb4eae36172462abb3a42e
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           dotnet-version: '9.x'
 
@@ -94,7 +94,7 @@ jobs:
         run: ci/ci.sh --platform=${{ matrix.platform }} --skip-builtins --skip-tests --skip-build-tests --skip-docs engine
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: defold-${{ matrix.platform }}
           path: |
@@ -108,16 +108,16 @@ jobs:
       contents: write
     steps:
       - name: Checkout current repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download artifact x86_64-win32
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: defold-x86_64-win32
           path: artifacts/defold-x86_64-win32
 
       - name: Download artifact win32
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: defold-win32
           path: artifacts/defold-win32
@@ -148,7 +148,7 @@ jobs:
           zip -r "graphics_angle-defold-${{ env.BUILD_BRANCH }}.zip" "extension"
 
       - name: Release extension archive
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}
           files: graphics_angle-defold-${{ env.BUILD_BRANCH }}.zip
