@@ -51,6 +51,24 @@ index b80a8d583d..021df90350 100644
  
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
+diff --git a/engine/graphics/CMakeLists.txt b/engine/graphics/CMakeLists.txt
+index 38a7ffe5a3..9e3a1abde3 100644
+--- a/engine/graphics/CMakeLists.txt
++++ b/engine/graphics/CMakeLists.txt
+@@ -159,9 +159,12 @@ endif()
+ if(TARGET_PLATFORM STREQUAL "x86_64-ios")
+   set(GRAPHICS_PLATFORM_SUPPORTS_VULKAN OFF)
+ endif()
+-if(TARGET_PLATFORM MATCHES "^(arm64-linux|armv7-android|arm64-android|x86_64-ios|arm64-ios)$")
++if(TARGET_PLATFORM MATCHES "^(arm64-linux|armv7-android|arm64-android|x86_64-ios|arm64-ios|x86-win32|x86_64-win32)$")
+   set(GRAPHICS_PLATFORM_SUPPORTS_OPENGLES ON)
+ endif()
++if(TARGET_PLATFORM MATCHES "^(x86-win32|x86_64-win32)$")
++  set(GRAPHICS_PLATFORM_SUPPORTS_OPENGL OFF)
++endif()
+ if(TARGET_PLATFORM STREQUAL "x86_64-win32")
+   set(GRAPHICS_PLATFORM_SUPPORTS_DX12 ON)
+ endif()
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
 index 63682194df..ec273c9d4e 100644
 --- a/engine/graphics/src/graphics.cpp
@@ -391,6 +409,34 @@ index 73ebcf8b8c..7834eac6b2 100644
  
      conf.env.append_value('INCLUDES', "../src")
      conf.env.append_value('INCLUDES', os.path.join(dynamo_ext, "include"))
+diff --git a/engine/tools/CMakeLists.txt b/engine/tools/CMakeLists.txt
+index 0083a9bb43..947dce3432 100644
+--- a/engine/tools/CMakeLists.txt
++++ b/engine/tools/CMakeLists.txt
+@@ -34,8 +34,13 @@ endif()
+ 
+ if(TOOLS_IS_DESKTOP)
+   block()
+-    # gdc creates an OpenGL window even when the engine build also enables Vulkan.
++    # gdc creates a graphics window even when the engine build also enables Vulkan.
++    set(TOOLS_GDC_GRAPHICS_LIBRARY graphics)
+     set(TOOLS_GDC_EXPORTS GraphicsAdapterOpenGL)
++    if(TARGET_PLATFORM MATCHES "^(x86-win32|x86_64-win32)$")
++      set(TOOLS_GDC_GRAPHICS_LIBRARY graphics_opengles)
++      set(TOOLS_GDC_EXPORTS GraphicsAdapterOpenGLES)
++    endif()
+     set(TOOLS_GDC_EXPORT_FILE "${CMAKE_CURRENT_BINARY_DIR}/gdc_exported_symbols.cpp")
+     defold_create_exported_symbols_file("${TOOLS_GDC_EXPORT_FILE}" "${TOOLS_GDC_EXPORTS}")
+     defold_add_executable(gdc
+@@ -53,7 +58,7 @@ if(TOOLS_IS_DESKTOP)
+       zip
+       mbedtls
+       profile_null
+-      graphics
++      ${TOOLS_GDC_GRAPHICS_LIBRARY}
+       image
+       graphics_transcoder_basisu
+       basis_transcoder
 diff --git a/engine/tools/wscript b/engine/tools/wscript
 index 63def42bdc..95c5b29efe 100755
 --- a/engine/tools/wscript
@@ -425,3 +471,64 @@ index 155d1b4557..e6561911a6 100755
      "protobuf-3.20.1",
      "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
+diff --git a/scripts/cmake/functions_graphics.cmake b/scripts/cmake/functions_graphics.cmake
+index ce6a390e12..d52ec12f1b 100644
+--- a/scripts/cmake/functions_graphics.cmake
++++ b/scripts/cmake/functions_graphics.cmake
+@@ -62,6 +62,9 @@ function(defold_get_graphics_symbols OUT_VAR PLATFORM)
+     elseif("${PLATFORM}" MATCHES "^(arm64-linux)$")
+         set(_use_opengles ON)
+         set(_use_vulkan ${_WITH_VULKAN})
++    elseif("${PLATFORM}" MATCHES "^(x86-win32|x86_64-win32)$")
++        set(_use_opengles ON)
++        set(_use_vulkan ${_WITH_VULKAN})
+     elseif("${PLATFORM}" MATCHES "^(armv7-android|arm64-android)$")
+         set(_use_opengles ${_WITH_OPENGL})
+         if(NOT _WITH_VULKAN)
+@@ -173,7 +176,7 @@ function(defold_target_link_graphics target platform)
+         set(OPENGL   GL;GLU)
+         set(OPENGLES EGL;GLESv1_CM;GLESv2)
+     elseif(_PLAT_OS STREQUAL "win32")
+-        set(OPENGL_LINKFLAGS opengl32.lib;glu32.lib)
++        set(OPENGLES libEGL.dll.lib;libGLESv2.dll.lib)
+     elseif(_PLAT_OS STREQUAL "macos")
+         set(FRAMEWORK_OPENGL OpenGL)
+     elseif(_PLAT_OS STREQUAL "ios")
+@@ -255,6 +258,9 @@ function(defold_target_link_graphics target platform)
+     elseif("${platform}" MATCHES "^(arm64-linux)$")
+         set(_use_opengles ON)
+         set(_use_vulkan ${_WITH_VULKAN})
++    elseif("${platform}" MATCHES "^(x86-win32|x86_64-win32)$")
++        set(_use_opengles ON)
++        set(_use_vulkan ${_WITH_VULKAN})
+     elseif("${platform}" MATCHES "^(armv7-android|arm64-android)$")
+         set(_use_opengles ${_WITH_OPENGL})
+         if(NOT _WITH_VULKAN)
+diff --git a/scripts/cmake/functions_libs.cmake b/scripts/cmake/functions_libs.cmake
+index ffbd802d6a..513d31b0ff 100644
+--- a/scripts/cmake/functions_libs.cmake
++++ b/scripts/cmake/functions_libs.cmake
+@@ -146,6 +146,8 @@ function(defold_target_link_libraries target platform)
+       list(APPEND _LIBS ${_vendor_libs})
+     elseif(_lib STREQUAL "graphics" AND DEFINED DEFOLD_PLATFORM_GRAPHICS_LIBS)
+       list(APPEND _LIBS ${DEFOLD_PLATFORM_GRAPHICS_LIBS})
++    elseif(_lib STREQUAL "graphics" AND "${platform}" MATCHES "^(x86-win32|x86_64-win32)$")
++      list(APPEND _LIBS graphics_opengles)
+     elseif(_lib STREQUAL "lua" AND NOT "${platform}" MATCHES "^(js-web|wasm-web|wasm_pthread-web)$")
+       list(APPEND _LIBS luajit-5.1)
+     else()
+diff --git a/scripts/cmake/functions_opengl.cmake b/scripts/cmake/functions_opengl.cmake
+index 9b5d25715b..ed412854a5 100644
+--- a/scripts/cmake/functions_opengl.cmake
++++ b/scripts/cmake/functions_opengl.cmake
+@@ -27,8 +27,8 @@ function(defold_target_link_opengl target platform)
+     string(REGEX REPLACE "^[^-]+-" "" _PLAT_OS "${platform}")
+ 
+     if(_PLAT_OS STREQUAL "win32")
+-        # Windows OpenGL libraries
+-        target_link_libraries(${target} ${DOGL_SCOPE} opengl32 glu32)
++        # Windows uses ANGLE's OpenGL ES import libraries in the ANGLE build.
++        target_link_libraries(${target} ${DOGL_SCOPE} libEGL.dll.lib libGLESv2.dll.lib)
+ 
+     elseif(_PLAT_OS STREQUAL "macos")
+         # macOS frameworks
