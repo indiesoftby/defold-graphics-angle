@@ -137,10 +137,10 @@ jobs:
           cp extension/graphics_angle/lib/x86-win32/*.dll extension/graphics_angle/res/x86-win32/
           cp extension/graphics_angle/lib/x86_64-win32/*.dll extension/graphics_angle/res/x86_64-win32/
 
-      - name: Prepare extension lib folders and copy libgraphics_opengles.lib
+      - name: Prepare extension lib folders and copy graphics_opengles.lib
         run: |
-          cp artifacts/defold-win32/lib/x86-win32/libgraphics_opengles.lib extension/graphics_angle/lib/x86-win32/
-          cp artifacts/defold-x86_64-win32/lib/x86_64-win32/libgraphics_opengles.lib extension/graphics_angle/lib/x86_64-win32/
+          cp artifacts/defold-win32/lib/x86-win32/graphics_opengles.lib extension/graphics_angle/lib/x86-win32/
+          cp artifacts/defold-x86_64-win32/lib/x86_64-win32/graphics_opengles.lib extension/graphics_angle/lib/x86_64-win32/
 
       - name: Zip extension folder
         shell: bash
