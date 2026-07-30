@@ -1,5 +1,5 @@
 diff --git a/build_tools/sdk.py b/build_tools/sdk.py
-index 40304a1cba..c1c12458cc 100644
+index 87bf940697..2dd297998c 100644
 --- a/build_tools/sdk.py
 +++ b/build_tools/sdk.py
 @@ -83,9 +83,9 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
@@ -16,19 +16,19 @@ index 40304a1cba..c1c12458cc 100644
  PACKAGES_WIN32_SDK=f"WindowsKits-{VERSION_WINDOWS_SDK}"
  
 diff --git a/build_tools/waf_dynamo.py b/build_tools/waf_dynamo.py
-index e1606fdb1d..823aa30940 100644
+index c5ebd801ec..9d8a4edcc5 100644
 --- a/build_tools/waf_dynamo.py
 +++ b/build_tools/waf_dynamo.py
-@@ -87,7 +87,7 @@ def platform_supports_feature(platform, feature, data):
+@@ -82,7 +82,7 @@ def platform_supports_feature(platform, feature, data):
      if feature == 'opengl_compute':
          return platform not in ['wasm-web', 'wasm_pthread-web', 'x86_64-ios', 'arm64-ios', 'arm64-macos', 'x86_64-macos']
      if feature == 'opengles':
--        return platform in ['arm64-linux', 'armv7-android', 'arm64-android']
-+        return platform in ['arm64-linux', 'armv7-android', 'arm64-android', 'x86_64-win32', 'win32']
+-        return platform in ['arm64-linux', 'armv7-android', 'arm64-android', 'x86_64-ios', 'arm64-ios']
++        return platform in ['arm64-linux', 'armv7-android', 'arm64-android', 'x86_64-ios', 'arm64-ios', 'x86_64-win32', 'win32']
      if feature == 'webgpu':
          return platform in ['wasm-web', 'wasm_pthread-web']
-     return waf_dynamo_vendor.supports_feature(platform, feature, data)
-@@ -352,6 +352,9 @@ def platform_graphics_libs_and_symbols(platform):
+     if feature == 'metal':
+@@ -265,6 +265,9 @@ def platform_graphics_libs_and_symbols(platform):
      elif platform in ('armv7-android', 'arm64-android'):
          use_opengles = Options.options.with_opengl or not Options.options.with_vulkan
          use_vulkan = Options.options.with_vulkan or not Options.options.with_opengl
@@ -39,10 +39,10 @@ index e1606fdb1d..823aa30940 100644
          use_opengl = True
          use_vulkan = Options.options.with_vulkan
 diff --git a/engine/engine/wscript b/engine/engine/wscript
-index 3ef5c86588..e0ef50882c 100644
+index b80a8d583d..021df90350 100644
 --- a/engine/engine/wscript
 +++ b/engine/engine/wscript
-@@ -121,7 +121,7 @@ def configure(conf):
+@@ -124,7 +124,7 @@ def configure(conf):
          conf.env['STLIB_CPP_RUNTIME'] = 'c++_static'
  
      elif target_os == TargetOS.WINDOWS:
@@ -51,11 +51,29 @@ index 3ef5c86588..e0ef50882c 100644
  
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
+diff --git a/engine/graphics/CMakeLists.txt b/engine/graphics/CMakeLists.txt
+index 38a7ffe5a3..9e3a1abde3 100644
+--- a/engine/graphics/CMakeLists.txt
++++ b/engine/graphics/CMakeLists.txt
+@@ -159,9 +159,12 @@ endif()
+ if(TARGET_PLATFORM STREQUAL "x86_64-ios")
+   set(GRAPHICS_PLATFORM_SUPPORTS_VULKAN OFF)
+ endif()
+-if(TARGET_PLATFORM MATCHES "^(arm64-linux|armv7-android|arm64-android|x86_64-ios|arm64-ios)$")
++if(TARGET_PLATFORM MATCHES "^(arm64-linux|armv7-android|arm64-android|x86_64-ios|arm64-ios|x86-win32|x86_64-win32)$")
+   set(GRAPHICS_PLATFORM_SUPPORTS_OPENGLES ON)
+ endif()
++if(TARGET_PLATFORM MATCHES "^(x86-win32|x86_64-win32)$")
++  set(GRAPHICS_PLATFORM_SUPPORTS_OPENGL OFF)
++endif()
+ if(TARGET_PLATFORM STREQUAL "x86_64-win32")
+   set(GRAPHICS_PLATFORM_SUPPORTS_DX12 ON)
+ endif()
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
-index 5a4677fe28..5a17a34265 100644
+index 63682194df..ec273c9d4e 100644
 --- a/engine/graphics/src/graphics.cpp
 +++ b/engine/graphics/src/graphics.cpp
-@@ -349,6 +349,31 @@ namespace dmGraphics
+@@ -368,6 +368,31 @@ namespace dmGraphics
      {
          ShaderDesc::Shader* selected_shader = 0x0;
  
@@ -88,7 +106,7 @@ index 5a4677fe28..5a17a34265 100644
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index ab142d9d5e..8b53614430 100644
+index eff50fc44b..39002f61d1 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -222,7 +240,7 @@ index ab142d9d5e..8b53614430 100644
  #elif defined(__EMSCRIPTEN__)
      #include <GL/glext.h>
      #if defined GL_ES_VERSION_2_0
-@@ -1328,107 +1215,6 @@ static void LogFrameBufferError(GLenum status)
+@@ -1366,107 +1253,6 @@ static void LogFrameBufferError(GLenum status)
          assert(_context);
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -330,19 +348,148 @@ index ab142d9d5e..8b53614430 100644
          context->m_IsGles3Version   = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState    = GetDefaultPipelineState();
          context->m_PipelineStateDirty = context->m_PipelineState;
-@@ -3994,9 +3780,9 @@ static void LogFrameBufferError(GLenum status)
-         {
-             if (context->m_IsGles3Version)
-             {
--                return language == ShaderDesc::LANGUAGE_GLES_SM300;
-+                return language == ShaderDesc::LANGUAGE_GLES_SM100 || language == ShaderDesc::LANGUAGE_GLES_SM300;
+@@ -1708,7 +1494,12 @@ static void LogFrameBufferError(GLenum status)
              }
--            return language == ShaderDesc::LANGUAGE_GLES_SM100;
-+            return language == ShaderDesc::LANGUAGE_GLES_SM300;
+ 
+             // https://registry.khronos.org/webgl/extensions/ANGLE_instanced_arrays/
+-            if (OpenGLIsExtensionSupported(_context, "ANGLE_instanced_arrays"))
++            bool has_instancing_extension = OpenGLIsExtensionSupported(_context, "ANGLE_instanced_arrays");
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            // Native ANGLE uses the GL_ prefixed extension name, unlike WebGL.
++            has_instancing_extension |= OpenGLIsExtensionSupported(_context, "GL_ANGLE_instanced_arrays");
++        #endif
++            if (has_instancing_extension)
+             {
+                 context->m_InstancingSupport = 1;
+             }
+@@ -1871,6 +1662,11 @@ static void LogFrameBufferError(GLenum status)
+ #endif
+ 
+     #ifdef DM_HAVE_OPENGL_COMPUTE_SUPPORT
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++        // ANGLE exports compute symbols independently of context version, but D3D9 only supports GLES2.
++        if (context->m_IsGles3Version)
++        #endif
++        {
+         int32_t version_major = 0, version_minor = 0;
+         glGetIntegerv(DMGRAPHICS_MAJOR_VERSION, &version_major);
+         glGetIntegerv(DMGRAPHICS_MINOR_VERSION, &version_minor);
+@@ -1888,6 +1684,7 @@ static void LogFrameBufferError(GLenum status)
+         context->m_ComputeSupport &= glBindImageTexture != 0;
+ 
+         #undef COMPUTE_VERSION_NEEDED
++        }
+     #endif
+ 
+         // GL_MIN/GL_MAX blend equations are core in GLES3+ and desktop GL.
+@@ -2046,7 +1843,12 @@ static void LogFrameBufferError(GLenum status)
+             }
          }
-         else if (shader_type == ShaderDesc::SHADER_TYPE_COMPUTE)
+ 
++    #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++        // ANGLE exports GLES3 entry points for GLES2 contexts, so skip core VAO calls on D3D9.
++        if (context->m_IsGles3Version)
++    #else
+         if (glGenVertexArrays)
++    #endif
          {
-@@ -5610,6 +5396,15 @@ static void LogFrameBufferError(GLenum status)
+             GLuint handle;
+             glGenVertexArrays(1, &handle);
+@@ -2545,7 +2347,19 @@ static void LogFrameBufferError(GLenum status)
+ 
+         if (context->m_InstancingSupport)
+         {
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            // GLES2 requires ANGLE-suffixed instancing entry points; the core variants require GLES3.
++            if (context->m_IsGles3Version)
++            {
++                glVertexAttribDivisor(loc, step_function);
++            }
++            else
++            {
++                glVertexAttribDivisorANGLE(loc, step_function);
++            }
++        #else
+             glVertexAttribDivisor(loc, step_function);
++        #endif
+             CHECK_GL_ERROR;
+         }
+     }
+@@ -2557,7 +2371,12 @@ static void LogFrameBufferError(GLenum status)
+ 
+         OpenGLContext* context = (OpenGLContext*) _context;
+ 
++    #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++        // ANGLE exports GLES3 entry points for GLES2 contexts, so skip core VAO calls on D3D9.
++        if (context->m_IsGles3Version)
++    #else
+         if (glBindVertexArray)
++    #endif
+             glBindVertexArray(GetGLHandle(context, context->m_GlobalVAO));
+ 
+         if (context->m_ModificationVersion != vertex_declaration->m_ModificationVersion || vertex_declaration->m_BoundForProgram != program)
+@@ -2645,10 +2464,20 @@ static void LogFrameBufferError(GLenum status)
+         case TEXTURE_FORMAT_LUMINANCE:
+             gl_format          = DMGRAPHICS_TEXTURE_FORMAT_LUMINANCE;
+             gl_internal_format = DMGRAPHICS_TEXTURE_FORMAT_LUMINANCE;
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            // ANGLE headers expose GLES3 GL_RED even when the D3D9 context is GLES2.
++            ES2_ENUM_WORKAROUND(gl_format, GL_LUMINANCE);
++            ES2_ENUM_WORKAROUND(gl_internal_format, GL_LUMINANCE);
++        #endif
+             break;
+         case TEXTURE_FORMAT_LUMINANCE_ALPHA:
+             gl_format          = DMGRAPHICS_TEXTURE_FORMAT_LUMINANCE_ALPHA;
+             gl_internal_format = DMGRAPHICS_TEXTURE_FORMAT_LUMINANCE_ALPHA;
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            // ANGLE headers expose GLES3 GL_RG even when the D3D9 context is GLES2.
++            ES2_ENUM_WORKAROUND(gl_format, GL_LUMINANCE_ALPHA);
++            ES2_ENUM_WORKAROUND(gl_internal_format, GL_LUMINANCE_ALPHA);
++        #endif
+             break;
+         case TEXTURE_FORMAT_RGB:
+             gl_format          = DMGRAPHICS_TEXTURE_FORMAT_RGB;
+@@ -3063,7 +2892,19 @@ static void LogFrameBufferError(GLenum status)
+ 
+         if (context->m_InstancingSupport)
+         {
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            // GLES2 requires ANGLE-suffixed instancing entry points; the core variants require GLES3.
++            if (context->m_IsGles3Version)
++            {
++                glDrawElementsInstanced(GetOpenGLPrimitiveType(prim_type), count, GetOpenGLType(type), (GLvoid*)(uintptr_t) first, dmMath::Max((uint32_t) 1, instance_count));
++            }
++            else
++            {
++                glDrawElementsInstancedANGLE(GetOpenGLPrimitiveType(prim_type), count, GetOpenGLType(type), (GLvoid*)(uintptr_t) first, dmMath::Max((uint32_t) 1, instance_count));
++            }
++        #else
+             glDrawElementsInstanced(GetOpenGLPrimitiveType(prim_type), count, GetOpenGLType(type), (GLvoid*)(uintptr_t) first, dmMath::Max((uint32_t) 1, instance_count));
++        #endif
+             CHECK_GL_ERROR;
+         }
+         else
+@@ -3084,7 +2925,19 @@ static void LogFrameBufferError(GLenum status)
+ 
+         if (context->m_InstancingSupport)
+         {
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            // GLES2 requires ANGLE-suffixed instancing entry points; the core variants require GLES3.
++            if (context->m_IsGles3Version)
++            {
++                glDrawArraysInstanced(GetOpenGLPrimitiveType(prim_type), first, count, dmMath::Max((uint32_t) 1, instance_count));
++            }
++            else
++            {
++                glDrawArraysInstancedANGLE(GetOpenGLPrimitiveType(prim_type), first, count, dmMath::Max((uint32_t) 1, instance_count));
++            }
++        #else
+             glDrawArraysInstanced(GetOpenGLPrimitiveType(prim_type), first, count, dmMath::Max((uint32_t) 1, instance_count));
++        #endif
+             CHECK_GL_ERROR;
+         }
+         else
+@@ -5553,6 +5406,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
@@ -391,6 +538,34 @@ index 73ebcf8b8c..7834eac6b2 100644
  
      conf.env.append_value('INCLUDES', "../src")
      conf.env.append_value('INCLUDES', os.path.join(dynamo_ext, "include"))
+diff --git a/engine/tools/CMakeLists.txt b/engine/tools/CMakeLists.txt
+index 0083a9bb43..947dce3432 100644
+--- a/engine/tools/CMakeLists.txt
++++ b/engine/tools/CMakeLists.txt
+@@ -34,8 +34,13 @@ endif()
+ 
+ if(TOOLS_IS_DESKTOP)
+   block()
+-    # gdc creates an OpenGL window even when the engine build also enables Vulkan.
++    # gdc creates a graphics window even when the engine build also enables Vulkan.
++    set(TOOLS_GDC_GRAPHICS_LIBRARY graphics)
+     set(TOOLS_GDC_EXPORTS GraphicsAdapterOpenGL)
++    if(TARGET_PLATFORM MATCHES "^(x86-win32|x86_64-win32)$")
++      set(TOOLS_GDC_GRAPHICS_LIBRARY graphics_opengles)
++      set(TOOLS_GDC_EXPORTS GraphicsAdapterOpenGLES)
++    endif()
+     set(TOOLS_GDC_EXPORT_FILE "${CMAKE_CURRENT_BINARY_DIR}/gdc_exported_symbols.cpp")
+     defold_create_exported_symbols_file("${TOOLS_GDC_EXPORT_FILE}" "${TOOLS_GDC_EXPORTS}")
+     defold_add_executable(gdc
+@@ -53,7 +58,7 @@ if(TOOLS_IS_DESKTOP)
+       zip
+       mbedtls
+       profile_null
+-      graphics
++      ${TOOLS_GDC_GRAPHICS_LIBRARY}
+       image
+       graphics_transcoder_basisu
+       basis_transcoder
 diff --git a/engine/tools/wscript b/engine/tools/wscript
 index 63def42bdc..95c5b29efe 100755
 --- a/engine/tools/wscript
@@ -406,10 +581,10 @@ index 63def42bdc..95c5b29efe 100755
          conf.env.append_value('LINKFLAGS', ['-lEGL', '-lGLESv1_CM', '-lGLESv2', '-landroid'])
  
 diff --git a/scripts/build.py b/scripts/build.py
-index 10bdc90cb7..b39aa3d218 100755
+index 155d1b4557..e6561911a6 100755
 --- a/scripts/build.py
 +++ b/scripts/build.py
-@@ -237,6 +237,7 @@ PACKAGES_MACOS_ARM64=[
+@@ -263,6 +263,7 @@ PACKAGES_MACOS_ARM64=[
      "zipalign"]
  
  PACKAGES_WIN32=[
@@ -417,7 +592,7 @@ index 10bdc90cb7..b39aa3d218 100755
      "protobuf-3.20.1",
      "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
-@@ -252,6 +253,7 @@ PACKAGES_WIN32=[
+@@ -278,6 +279,7 @@ PACKAGES_WIN32=[
      "SkriBidi-1e8038"]
  
  PACKAGES_WIN32_64=[
@@ -425,3 +600,64 @@ index 10bdc90cb7..b39aa3d218 100755
      "protobuf-3.20.1",
      "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
+diff --git a/scripts/cmake/functions_graphics.cmake b/scripts/cmake/functions_graphics.cmake
+index ce6a390e12..d52ec12f1b 100644
+--- a/scripts/cmake/functions_graphics.cmake
++++ b/scripts/cmake/functions_graphics.cmake
+@@ -62,6 +62,9 @@ function(defold_get_graphics_symbols OUT_VAR PLATFORM)
+     elseif("${PLATFORM}" MATCHES "^(arm64-linux)$")
+         set(_use_opengles ON)
+         set(_use_vulkan ${_WITH_VULKAN})
++    elseif("${PLATFORM}" MATCHES "^(x86-win32|x86_64-win32)$")
++        set(_use_opengles ON)
++        set(_use_vulkan ${_WITH_VULKAN})
+     elseif("${PLATFORM}" MATCHES "^(armv7-android|arm64-android)$")
+         set(_use_opengles ${_WITH_OPENGL})
+         if(NOT _WITH_VULKAN)
+@@ -173,7 +176,7 @@ function(defold_target_link_graphics target platform)
+         set(OPENGL   GL;GLU)
+         set(OPENGLES EGL;GLESv1_CM;GLESv2)
+     elseif(_PLAT_OS STREQUAL "win32")
+-        set(OPENGL_LINKFLAGS opengl32.lib;glu32.lib)
++        set(OPENGLES libEGL.dll.lib;libGLESv2.dll.lib)
+     elseif(_PLAT_OS STREQUAL "macos")
+         set(FRAMEWORK_OPENGL OpenGL)
+     elseif(_PLAT_OS STREQUAL "ios")
+@@ -255,6 +258,9 @@ function(defold_target_link_graphics target platform)
+     elseif("${platform}" MATCHES "^(arm64-linux)$")
+         set(_use_opengles ON)
+         set(_use_vulkan ${_WITH_VULKAN})
++    elseif("${platform}" MATCHES "^(x86-win32|x86_64-win32)$")
++        set(_use_opengles ON)
++        set(_use_vulkan ${_WITH_VULKAN})
+     elseif("${platform}" MATCHES "^(armv7-android|arm64-android)$")
+         set(_use_opengles ${_WITH_OPENGL})
+         if(NOT _WITH_VULKAN)
+diff --git a/scripts/cmake/functions_libs.cmake b/scripts/cmake/functions_libs.cmake
+index ffbd802d6a..513d31b0ff 100644
+--- a/scripts/cmake/functions_libs.cmake
++++ b/scripts/cmake/functions_libs.cmake
+@@ -146,6 +146,8 @@ function(defold_target_link_libraries target platform)
+       list(APPEND _LIBS ${_vendor_libs})
+     elseif(_lib STREQUAL "graphics" AND DEFINED DEFOLD_PLATFORM_GRAPHICS_LIBS)
+       list(APPEND _LIBS ${DEFOLD_PLATFORM_GRAPHICS_LIBS})
++    elseif(_lib STREQUAL "graphics" AND "${platform}" MATCHES "^(x86-win32|x86_64-win32)$")
++      list(APPEND _LIBS graphics_opengles)
+     elseif(_lib STREQUAL "lua" AND NOT "${platform}" MATCHES "^(js-web|wasm-web|wasm_pthread-web)$")
+       list(APPEND _LIBS luajit-5.1)
+     else()
+diff --git a/scripts/cmake/functions_opengl.cmake b/scripts/cmake/functions_opengl.cmake
+index 9b5d25715b..ed412854a5 100644
+--- a/scripts/cmake/functions_opengl.cmake
++++ b/scripts/cmake/functions_opengl.cmake
+@@ -27,8 +27,8 @@ function(defold_target_link_opengl target platform)
+     string(REGEX REPLACE "^[^-]+-" "" _PLAT_OS "${platform}")
+ 
+     if(_PLAT_OS STREQUAL "win32")
+-        # Windows OpenGL libraries
+-        target_link_libraries(${target} ${DOGL_SCOPE} opengl32 glu32)
++        # Windows uses ANGLE's OpenGL ES import libraries in the ANGLE build.
++        target_link_libraries(${target} ${DOGL_SCOPE} libEGL.dll.lib libGLESv2.dll.lib)
+ 
+     elseif(_PLAT_OS STREQUAL "macos")
+         # macOS frameworks

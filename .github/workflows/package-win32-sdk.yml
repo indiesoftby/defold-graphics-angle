@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout Defold
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: defold/defold
           ref: ${{env.BUILD_BRANCH}}
@@ -29,7 +29,7 @@ jobs:
         run: ./scripts/package/package_win32_sdk.sh
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: local_sdks
           path: local_sdks
