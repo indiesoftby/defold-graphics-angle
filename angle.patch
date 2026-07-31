@@ -106,7 +106,7 @@ index 63682194df..ec273c9d4e 100644
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index eff50fc44b..89bf51bf7a 100644
+index eff50fc44b..2a0239e925 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -580,22 +580,23 @@ index eff50fc44b..89bf51bf7a 100644
              break;
          case TEXTURE_FORMAT_R16F:
              gl_type            = DMGRAPHICS_TYPE_HALF_FLOAT;
-@@ -2754,6 +2638,14 @@ static void LogFrameBufferError(GLenum status)
+@@ -2754,6 +2638,15 @@ static void LogFrameBufferError(GLenum status)
              gl_type            = GL_FLOAT;
              gl_format          = GL_DEPTH_COMPONENT;
              gl_internal_format = GetDepthBufferFormat(context);
 +        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            // GLES depth textures require integer upload types here; GL_FLOAT is only valid with DEPTH_COMPONENT32F.
++            gl_type = context->m_DepthBufferBits == 16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
 +            if (!context->m_IsGles3Version)
 +            {
-+                // OES_depth_texture requires matching unsized formats and an integer data type in GLES2.
-+                gl_type = context->m_DepthBufferBits == 16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
++                // OES_depth_texture requires matching unsized formats in GLES2.
 +                gl_internal_format = GL_DEPTH_COMPONENT;
 +            }
 +        #endif
          #ifdef __EMSCRIPTEN__
              gl_type            = GL_UNSIGNED_INT;
              gl_internal_format = context->m_IsGles3Version ? GL_DEPTH_COMPONENT24 : DMGRAPHICS_RENDER_BUFFER_FORMAT_DEPTH16;
-@@ -2769,6 +2661,7 @@ static void LogFrameBufferError(GLenum status)
+@@ -2769,6 +2662,7 @@ static void LogFrameBufferError(GLenum status)
      #undef ES2_ENUM_WORKAROUND
      #undef EMSCRIPTEN_ES2_BACKWARDS_COMPAT
      #undef ANDROID_ES2_BACKWARDS_COMPAT
@@ -603,7 +604,7 @@ index eff50fc44b..89bf51bf7a 100644
      }
  
  #ifdef DM_HAVE_OPENGL_COMPUTE_SUPPORT
-@@ -3063,7 +2956,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -3063,7 +2957,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -623,7 +624,7 @@ index eff50fc44b..89bf51bf7a 100644
              CHECK_GL_ERROR;
          }
          else
-@@ -3084,7 +2989,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -3084,7 +2990,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -643,7 +644,7 @@ index eff50fc44b..89bf51bf7a 100644
              CHECK_GL_ERROR;
          }
          else
-@@ -4254,6 +4171,29 @@ static void LogFrameBufferError(GLenum status)
+@@ -4254,6 +4172,29 @@ static void LogFrameBufferError(GLenum status)
          attachment.m_Attached = true;
      }
  
@@ -673,7 +674,7 @@ index eff50fc44b..89bf51bf7a 100644
      static void ApplyRenderTargetAttachments(HContext _context, OpenGLRenderTarget* rt, bool update_current)
      {
          OpenGLContext* context = (OpenGLContext*) _context;
-@@ -4275,15 +4215,9 @@ static void LogFrameBufferError(GLenum status)
+@@ -4275,15 +4216,9 @@ static void LogFrameBufferError(GLenum status)
                  glBindRenderbuffer(GL_RENDERBUFFER, GetGLHandle(context, rt->m_DepthStencilAttachment.m_Buffer));
                  glRenderbufferStorage(GL_RENDERBUFFER, DMGRAPHICS_RENDER_BUFFER_FORMAT_DEPTH_STENCIL, rt->m_Base.m_DepthStencilTextureParams.m_Width, rt->m_Base.m_DepthStencilTextureParams.m_Height);
                  CHECK_GL_ERROR;
@@ -692,7 +693,7 @@ index eff50fc44b..89bf51bf7a 100644
                  glBindRenderbuffer(GL_RENDERBUFFER, 0);
              }
              else if (rt->m_DepthStencilAttachment.m_Type == ATTACHMENT_TYPE_TEXTURE)
-@@ -4296,21 +4230,25 @@ static void LogFrameBufferError(GLenum status)
+@@ -4296,21 +4231,25 @@ static void LogFrameBufferError(GLenum status)
                  CHECK_GL_ERROR;
  
                   // The data type (DMGRAPHICS_TYPE_UNSIGNED_INT_24_8) might change later when we introduce 32f depth formats
@@ -726,7 +727,7 @@ index eff50fc44b..89bf51bf7a 100644
              }
              else
              {
-@@ -4375,6 +4313,24 @@ static void LogFrameBufferError(GLenum status)
+@@ -4375,6 +4314,24 @@ static void LogFrameBufferError(GLenum status)
              BUFFER_TYPE_COLOR3_BIT,
          };
  
@@ -751,7 +752,7 @@ index eff50fc44b..89bf51bf7a 100644
          // NOTE: Regarding this, the OpenGL context we create is to low on all current desktop platforms to use, but it should work for the other adapters.
          if (stencil_texture)
          {
-@@ -5553,6 +5509,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -5553,6 +5510,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
