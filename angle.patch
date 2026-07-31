@@ -106,7 +106,7 @@ index 63682194df..ec273c9d4e 100644
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index eff50fc44b..2a0239e925 100644
+index eff50fc44b..fb670b5c7a 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -644,7 +644,185 @@ index eff50fc44b..2a0239e925 100644
              CHECK_GL_ERROR;
          }
          else
-@@ -4254,6 +4172,29 @@ static void LogFrameBufferError(GLenum status)
+@@ -3114,8 +3032,64 @@ static void LogFrameBufferError(GLenum status)
+     #endif
+     }
+ 
+-    static GLuint DoCreateShader(HContext _context, GLenum type, const void* program, uint32_t program_size, char* error_buffer, uint32_t error_buffer_size)
++    static const char* GetOpenGLShaderTypeLiteral(GLenum type)
++    {
++        switch(type)
++        {
++            case GL_VERTEX_SHADER:                 return "vertex";
++            case GL_FRAGMENT_SHADER:               return "fragment";
++            case DMGRAPHICS_TYPE_COMPUTE_SHADER:   return "compute";
++            default:                               return "unknown";
++        }
++    }
++
++    static const char* GetOpenGLShaderLanguageLiteral(ShaderDesc::Language language)
++    {
++        switch(language)
++        {
++            case ShaderDesc::LANGUAGE_GLSL_SM120: return "LANGUAGE_GLSL_SM120";
++            case ShaderDesc::LANGUAGE_GLES_SM100: return "LANGUAGE_GLES_SM100";
++            case ShaderDesc::LANGUAGE_GLES_SM300: return "LANGUAGE_GLES_SM300";
++            case ShaderDesc::LANGUAGE_GLSL_SM330: return "LANGUAGE_GLSL_SM330";
++            case ShaderDesc::LANGUAGE_GLSL_SM430: return "LANGUAGE_GLSL_SM430";
++            default:                              return "unknown";
++        }
++    }
++
++    static void LogShaderSource(const void* program, uint32_t program_size)
++    {
++        const char* source = (const char*) program;
++        uint32_t line = 1;
++        uint32_t line_start = 0;
++
++        dmLogError("[SHADER_DEBUG] Shader source begin (%u bytes)", program_size);
++        while (line_start < program_size)
++        {
++            uint32_t line_end = line_start;
++            while (line_end < program_size && source[line_end] != '\n')
++            {
++                ++line_end;
++            }
++
++            uint32_t line_length = line_end - line_start;
++            if (line_length > 0 && source[line_start + line_length - 1] == '\r')
++            {
++                --line_length;
++            }
++            dmLogError("[SHADER_DEBUG] %4u | %.*s", line, (int) line_length, source + line_start);
++
++            line_start = line_end + (line_end < program_size ? 1 : 0);
++            ++line;
++        }
++        dmLogError("[SHADER_DEBUG] Shader source end");
++    }
++
++    static GLuint DoCreateShader(HContext _context, GLenum type, ShaderDesc::Language language, const void* program, uint32_t program_size, char* error_buffer, uint32_t error_buffer_size)
+     {
++        const char* type_str = GetOpenGLShaderTypeLiteral(type);
++        const char* language_str = GetOpenGLShaderLanguageLiteral(language);
++        dmLogInfo("[SHADER_DEBUG] Compiling %s shader: language=%s source_bytes=%u", type_str, language_str, program_size);
++
+         GLuint shader_id = glCreateShader(type);
+         CHECK_GL_ERROR;
+         GLint size = program_size;
+@@ -3128,25 +3102,9 @@ static void LogFrameBufferError(GLenum status)
+         glGetShaderiv(shader_id, GL_COMPILE_STATUS, &status);
+         if (status == 0)
+         {
+-            const char* type_str = "";
+-            switch(type)
+-            {
+-                case GL_VERTEX_SHADER:
+-                    type_str = "vertex";
+-                    break;
+-                case GL_FRAGMENT_SHADER:
+-                    type_str = "fragment";
+-                    break;
+-                case DMGRAPHICS_TYPE_COMPUTE_SHADER:
+-                    type_str = "compute";
+-                    break;
+-                default:
+-                    break;
+-            }
+-
+             char* log_str = 0;
+ 
+-#ifndef NDEBUG
++            // ANGLE compiler diagnostics must also be available in release engine builds.
+             GLint logLength;
+             glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH, &logLength);
+             if (logLength > 0)
+@@ -3154,7 +3112,11 @@ static void LogFrameBufferError(GLenum status)
+                 log_str = (GLchar *)malloc(logLength);
+                 glGetShaderInfoLog(shader_id, logLength, &logLength, log_str);
+             }
+-#endif
++
++            dmLogError("[SHADER_DEBUG] Failed to compile %s shader: language=%s source_bytes=%u", type_str, language_str, program_size);
++            dmLogError("[SHADER_DEBUG] Compiler log: %s", log_str == 0 ? "<empty>" : log_str);
++            LogShaderSource(program, program_size);
++
+             if (error_buffer)
+             {
+                 dmSnPrintf(error_buffer, error_buffer_size, "Unable to compile %s shader.\nError: %s", type_str, log_str == 0 ? "Unknown" : log_str);
+@@ -3173,7 +3135,7 @@ static void LogFrameBufferError(GLenum status)
+     static OpenGLShader* CreateShader(HContext _context, GLenum type, ShaderDesc::Shader* ddf_shader, char* error_buffer, uint32_t error_buffer_size)
+     {
+         OpenGLContext* context = (OpenGLContext*) _context;
+-        GLuint shader_id = DoCreateShader(_context, type, ddf_shader->m_Source.m_Data, ddf_shader->m_Source.m_Count, error_buffer, error_buffer_size);
++        GLuint shader_id = DoCreateShader(_context, type, ddf_shader->m_Language, ddf_shader->m_Source.m_Data, ddf_shader->m_Source.m_Count, error_buffer, error_buffer_size);
+         if (!shader_id)
+         {
+             return 0;
+@@ -3654,18 +3616,21 @@ static void LogFrameBufferError(GLenum status)
+ 
+         if (status == 0)
+         {
+-            dmLogError("Unable to link program.");
+-#ifndef NDEBUG
+-            GLint logLength;
++            // ANGLE linker diagnostics must also be available in release engine builds.
++            GLint logLength = 0;
+             glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
++            dmLogError("[SHADER_DEBUG] Failed to link shader program: program_id=%u", program);
+             if (logLength > 0)
+             {
+                 GLchar *log = (GLchar*) malloc(logLength);
+                 glGetProgramInfoLog(program, logLength, &logLength, log);
+-                dmLogWarning("%s\n", log);
++                dmLogError("[SHADER_DEBUG] Linker log: %s", log);
+                 free(log);
+             }
+-#endif
++            else
++            {
++                dmLogError("[SHADER_DEBUG] Linker log: <empty>");
++            }
+             return false;
+         }
+         return true;
+@@ -3791,6 +3756,12 @@ static void LogFrameBufferError(GLenum status)
+         {
+         #ifdef DM_HAVE_OPENGL_COMPUTE_SUPPORT
+             OpenGLShader* compute_shader = CreateShader(_context, DMGRAPHICS_TYPE_COMPUTE_SHADER, ddf_cp, error_buffer, error_buffer_size);
++            if (!compute_shader)
++            {
++                // A failed shader compilation must return the compiler error instead of entering program setup with a null shader.
++                delete program;
++                return 0;
++            }
+             if (!SetupComputeProgram(context, program, compute_shader))
+             {
+                 DeleteShader(context, compute_shader);
+@@ -3804,7 +3775,22 @@ static void LogFrameBufferError(GLenum status)
+         else
+         {
+             OpenGLShader* vertex_shader = CreateShader(_context, GL_VERTEX_SHADER, ddf_vp, error_buffer, error_buffer_size);
++            if (!vertex_shader)
++            {
++                // A failed shader compilation must return the compiler error instead of entering program setup with a null shader.
++                delete program;
++                return 0;
++            }
++
+             OpenGLShader* fragment_shader = CreateShader(_context, GL_FRAGMENT_SHADER, ddf_fp, error_buffer, error_buffer_size);
++            if (!fragment_shader)
++            {
++                // A failed shader compilation must return the compiler error instead of entering program setup with a null shader.
++                DeleteShader(context, vertex_shader);
++                delete program;
++                return 0;
++            }
++
+             if (!SetupGraphicsProgram(context, program, vertex_shader, fragment_shader))
+             {
+                 DeleteShader(context, vertex_shader);
+@@ -4254,6 +4240,29 @@ static void LogFrameBufferError(GLenum status)
          attachment.m_Attached = true;
      }
  
@@ -674,7 +852,7 @@ index eff50fc44b..2a0239e925 100644
      static void ApplyRenderTargetAttachments(HContext _context, OpenGLRenderTarget* rt, bool update_current)
      {
          OpenGLContext* context = (OpenGLContext*) _context;
-@@ -4275,15 +4216,9 @@ static void LogFrameBufferError(GLenum status)
+@@ -4275,15 +4284,9 @@ static void LogFrameBufferError(GLenum status)
                  glBindRenderbuffer(GL_RENDERBUFFER, GetGLHandle(context, rt->m_DepthStencilAttachment.m_Buffer));
                  glRenderbufferStorage(GL_RENDERBUFFER, DMGRAPHICS_RENDER_BUFFER_FORMAT_DEPTH_STENCIL, rt->m_Base.m_DepthStencilTextureParams.m_Width, rt->m_Base.m_DepthStencilTextureParams.m_Height);
                  CHECK_GL_ERROR;
@@ -693,7 +871,7 @@ index eff50fc44b..2a0239e925 100644
                  glBindRenderbuffer(GL_RENDERBUFFER, 0);
              }
              else if (rt->m_DepthStencilAttachment.m_Type == ATTACHMENT_TYPE_TEXTURE)
-@@ -4296,21 +4231,25 @@ static void LogFrameBufferError(GLenum status)
+@@ -4296,21 +4299,25 @@ static void LogFrameBufferError(GLenum status)
                  CHECK_GL_ERROR;
  
                   // The data type (DMGRAPHICS_TYPE_UNSIGNED_INT_24_8) might change later when we introduce 32f depth formats
@@ -727,7 +905,7 @@ index eff50fc44b..2a0239e925 100644
              }
              else
              {
-@@ -4375,6 +4314,24 @@ static void LogFrameBufferError(GLenum status)
+@@ -4375,6 +4382,24 @@ static void LogFrameBufferError(GLenum status)
              BUFFER_TYPE_COLOR3_BIT,
          };
  
@@ -752,7 +930,7 @@ index eff50fc44b..2a0239e925 100644
          // NOTE: Regarding this, the OpenGL context we create is to low on all current desktop platforms to use, but it should work for the other adapters.
          if (stencil_texture)
          {
-@@ -5553,6 +5510,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -5553,6 +5578,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
