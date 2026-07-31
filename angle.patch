@@ -106,7 +106,7 @@ index 63682194df..ec273c9d4e 100644
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index eff50fc44b..bcfcbc0950 100644
+index eff50fc44b..89bf51bf7a 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -240,7 +240,30 @@ index eff50fc44b..bcfcbc0950 100644
  #elif defined(__EMSCRIPTEN__)
      #include <GL/glext.h>
      #if defined GL_ES_VERSION_2_0
-@@ -1366,107 +1253,6 @@ static void LogFrameBufferError(GLenum status)
+@@ -1207,7 +1094,7 @@ static void LogFrameBufferError(GLenum status)
+             1) ARB - Extensions officially approved by the OpenGL Architecture Review Board
+             2) EXT - Extensions agreed upon by multiple OpenGL vendors
+             3) OES - Vendor specific code for the OpenGL ES working group
+-            4) Optionally check as core function (if not GLES and core_name is set)
++            4) Optionally check as a core function when the current context supports it
+         */
+         uintptr_t func = 0x0;
+ 
+@@ -1238,9 +1125,11 @@ static void LogFrameBufferError(GLenum status)
+             }
+         }
+     #if !defined(__EMSCRIPTEN__)
+-        if(func == 0 && core_name)
++        OpenGLContext* context = (OpenGLContext*) _context;
++        bool core_function_supported = !context->m_IsShaderLanguageGles || context->m_IsGles3Version;
++        if(func == 0 && core_name && core_function_supported)
+         {
+-            // On OpenGL, optionally check for core driver support if extension wasn't found (i.e extension has become part of core OpenGL)
++            // ANGLE exports GLES3 symbols for GLES2 contexts, so core lookup must follow the runtime context version.
+             func = dmPlatform::GetProcAddress(window, core_name);
+         }
+     #endif
+@@ -1366,107 +1255,6 @@ static void LogFrameBufferError(GLenum status)
          assert(_context);
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -348,7 +371,7 @@ index eff50fc44b..bcfcbc0950 100644
          context->m_IsGles3Version   = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState    = GetDefaultPipelineState();
          context->m_PipelineStateDirty = context->m_PipelineState;
-@@ -1641,6 +1427,14 @@ static void LogFrameBufferError(GLenum status)
+@@ -1641,6 +1429,14 @@ static void LogFrameBufferError(GLenum status)
              context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA_BC3; // DXT5
          }
  
@@ -363,9 +386,36 @@ index eff50fc44b..bcfcbc0950 100644
          // https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_texture_compression_rgtc.txt
          if (OpenGLIsExtensionSupported(_context, "GL_ARB_texture_compression_rgtc") ||
              OpenGLIsExtensionSupported(_context, "GL_EXT_texture_compression_rgtc") ||
-@@ -1708,7 +1502,12 @@ static void LogFrameBufferError(GLenum status)
+@@ -1694,7 +1490,13 @@ static void LogFrameBufferError(GLenum status)
+         else
+         {
+             // https://registry.khronos.org/OpenGL/extensions/EXT/EXT_color_buffer_half_float.txt
+-            if (OpenGLIsExtensionSupported(_context, "EXT_color_buffer_half_float"))
++            bool has_half_float_color = OpenGLIsExtensionSupported(_context, "EXT_color_buffer_half_float");
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            // Native ANGLE uses GL-prefixed ES extension names instead of WebGL names.
++            has_half_float_color |= OpenGLIsExtensionSupported(_context, "GL_EXT_color_buffer_half_float") &&
++                                    OpenGLIsExtensionSupported(_context, "GL_OES_texture_half_float");
++        #endif
++            if (has_half_float_color)
+             {
+                 context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGB16F;
+                 context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA16F;
+@@ -1707,8 +1509,24 @@ static void LogFrameBufferError(GLenum status)
+                 context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA32F;
              }
  
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            if (OpenGLIsExtensionSupported(_context, "GL_OES_texture_float"))
++            {
++                // ANGLE D3D9 advertises RGB and RGBA float renderability as separate CHROMIUM extensions.
++                if (OpenGLIsExtensionSupported(_context, "GL_CHROMIUM_color_buffer_float_rgb"))
++                    context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGB32F;
++                if (OpenGLIsExtensionSupported(_context, "GL_CHROMIUM_color_buffer_float_rgba"))
++                    context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA32F;
++            }
++        #endif
++
              // https://registry.khronos.org/webgl/extensions/ANGLE_instanced_arrays/
 -            if (OpenGLIsExtensionSupported(_context, "ANGLE_instanced_arrays"))
 +            bool has_instancing_extension = OpenGLIsExtensionSupported(_context, "ANGLE_instanced_arrays");
@@ -377,7 +427,7 @@ index eff50fc44b..bcfcbc0950 100644
              {
                  context->m_InstancingSupport = 1;
              }
-@@ -1871,6 +1670,11 @@ static void LogFrameBufferError(GLenum status)
+@@ -1871,6 +1689,11 @@ static void LogFrameBufferError(GLenum status)
  #endif
  
      #ifdef DM_HAVE_OPENGL_COMPUTE_SUPPORT
@@ -389,7 +439,7 @@ index eff50fc44b..bcfcbc0950 100644
          int32_t version_major = 0, version_minor = 0;
          glGetIntegerv(DMGRAPHICS_MAJOR_VERSION, &version_major);
          glGetIntegerv(DMGRAPHICS_MINOR_VERSION, &version_minor);
-@@ -1888,6 +1692,7 @@ static void LogFrameBufferError(GLenum status)
+@@ -1888,6 +1711,7 @@ static void LogFrameBufferError(GLenum status)
          context->m_ComputeSupport &= glBindImageTexture != 0;
  
          #undef COMPUTE_VERSION_NEEDED
@@ -397,20 +447,34 @@ index eff50fc44b..bcfcbc0950 100644
      #endif
  
          // GL_MIN/GL_MAX blend equations are core in GLES3+ and desktop GL.
-@@ -2046,7 +1851,12 @@ static void LogFrameBufferError(GLenum status)
+@@ -2046,12 +1870,26 @@ static void LogFrameBufferError(GLenum status)
              }
          }
  
 +    #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
-+        // ANGLE exports GLES3 entry points for GLES2 contexts, so skip core VAO calls on D3D9.
++        GLuint handle;
 +        if (context->m_IsGles3Version)
++        {
++            glGenVertexArrays(1, &handle);
++        }
++        else
++        {
++            // ANGLE implements OES_vertex_array_object in its frontend for every GLES2 backend.
++            glGenVertexArraysOES(1, &handle);
++        }
++        context->m_GlobalVAO = AddNewGLHandle(context, handle);
 +    #else
          if (glGenVertexArrays)
-+    #endif
          {
              GLuint handle;
              glGenVertexArrays(1, &handle);
-@@ -2545,7 +2355,19 @@ static void LogFrameBufferError(GLenum status)
+             context->m_GlobalVAO = AddNewGLHandle(context, handle);
+         }
++    #endif
+ 
+         SetSwapInterval(_context, params.m_SwapInterval);
+ 
+@@ -2545,7 +2383,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -430,20 +494,39 @@ index eff50fc44b..bcfcbc0950 100644
              CHECK_GL_ERROR;
          }
      }
-@@ -2557,7 +2379,12 @@ static void LogFrameBufferError(GLenum status)
+@@ -2557,8 +2407,20 @@ static void LogFrameBufferError(GLenum status)
  
          OpenGLContext* context = (OpenGLContext*) _context;
  
 +    #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
-+        // ANGLE exports GLES3 entry points for GLES2 contexts, so skip core VAO calls on D3D9.
 +        if (context->m_IsGles3Version)
++        {
++            glBindVertexArray(GetGLHandle(context, context->m_GlobalVAO));
++        }
++        else
++        {
++            // ANGLE implements OES_vertex_array_object in its frontend for every GLES2 backend.
++            glBindVertexArrayOES(GetGLHandle(context, context->m_GlobalVAO));
++        }
 +    #else
          if (glBindVertexArray)
-+    #endif
              glBindVertexArray(GetGLHandle(context, context->m_GlobalVAO));
++    #endif
  
          if (context->m_ModificationVersion != vertex_declaration->m_ModificationVersion || vertex_declaration->m_BoundForProgram != program)
-@@ -2645,10 +2472,20 @@ static void LogFrameBufferError(GLenum status)
+         {
+@@ -2639,16 +2501,31 @@ static void LogFrameBufferError(GLenum status)
+     #else
+         #define ANDROID_ES2_BACKWARDS_COMPAT(var, value)
+     #endif
++    #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++        #define ANGLE_ES2_BACKWARDS_COMPAT(var, value) ES2_ENUM_WORKAROUND(var, value)
++    #else
++        #define ANGLE_ES2_BACKWARDS_COMPAT(var, value)
++    #endif
+ 
+         switch (format)
+         {
          case TEXTURE_FORMAT_LUMINANCE:
              gl_format          = DMGRAPHICS_TEXTURE_FORMAT_LUMINANCE;
              gl_internal_format = DMGRAPHICS_TEXTURE_FORMAT_LUMINANCE;
@@ -464,7 +547,63 @@ index eff50fc44b..bcfcbc0950 100644
              break;
          case TEXTURE_FORMAT_RGB:
              gl_format          = DMGRAPHICS_TEXTURE_FORMAT_RGB;
-@@ -3063,7 +2900,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -2707,12 +2584,16 @@ static void LogFrameBufferError(GLenum status)
+             EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGB);
+             EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
+             ANDROID_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
++            // ANGLE GLES2 requires the OES type and an unsized internal format.
++            ANGLE_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGB);
++            ANGLE_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
+             break;
+         case TEXTURE_FORMAT_RGB32F:
+             gl_type            = GL_FLOAT;
+             gl_format          = DMGRAPHICS_TEXTURE_FORMAT_RGB;
+             gl_internal_format = DMGRAPHICS_TEXTURE_FORMAT_RGB32F;
+             EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGB);
++            ANGLE_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGB);
+             break;
+         case TEXTURE_FORMAT_RGBA16F:
+             gl_type            = DMGRAPHICS_TYPE_HALF_FLOAT;
+@@ -2721,12 +2602,15 @@ static void LogFrameBufferError(GLenum status)
+             EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGBA);
+             EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
+             ANDROID_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
++            ANGLE_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGBA);
++            ANGLE_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
+             break;
+         case TEXTURE_FORMAT_RGBA32F:
+             gl_type            = GL_FLOAT;
+             gl_format          = DMGRAPHICS_TEXTURE_FORMAT_RGBA;
+             gl_internal_format = DMGRAPHICS_TEXTURE_FORMAT_RGBA32F;
+             EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGBA);
++            ANGLE_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGBA);
+             break;
+         case TEXTURE_FORMAT_R16F:
+             gl_type            = DMGRAPHICS_TYPE_HALF_FLOAT;
+@@ -2754,6 +2638,14 @@ static void LogFrameBufferError(GLenum status)
+             gl_type            = GL_FLOAT;
+             gl_format          = GL_DEPTH_COMPONENT;
+             gl_internal_format = GetDepthBufferFormat(context);
++        #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++            if (!context->m_IsGles3Version)
++            {
++                // OES_depth_texture requires matching unsized formats and an integer data type in GLES2.
++                gl_type = context->m_DepthBufferBits == 16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT;
++                gl_internal_format = GL_DEPTH_COMPONENT;
++            }
++        #endif
+         #ifdef __EMSCRIPTEN__
+             gl_type            = GL_UNSIGNED_INT;
+             gl_internal_format = context->m_IsGles3Version ? GL_DEPTH_COMPONENT24 : DMGRAPHICS_RENDER_BUFFER_FORMAT_DEPTH16;
+@@ -2769,6 +2661,7 @@ static void LogFrameBufferError(GLenum status)
+     #undef ES2_ENUM_WORKAROUND
+     #undef EMSCRIPTEN_ES2_BACKWARDS_COMPAT
+     #undef ANDROID_ES2_BACKWARDS_COMPAT
++    #undef ANGLE_ES2_BACKWARDS_COMPAT
+     }
+ 
+ #ifdef DM_HAVE_OPENGL_COMPUTE_SUPPORT
+@@ -3063,7 +2956,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -484,7 +623,7 @@ index eff50fc44b..bcfcbc0950 100644
              CHECK_GL_ERROR;
          }
          else
-@@ -3084,7 +2933,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -3084,7 +2989,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -504,7 +643,115 @@ index eff50fc44b..bcfcbc0950 100644
              CHECK_GL_ERROR;
          }
          else
-@@ -5553,6 +5414,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -4254,6 +4171,29 @@ static void LogFrameBufferError(GLenum status)
+         attachment.m_Attached = true;
+     }
+ 
++    static inline uint32_t GetDepthStencilAttachmentTargets(OpenGLContext* context, GLenum attachment_targets[2])
++    {
++        (void) context;
++    #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++        if (!context->m_IsGles3Version)
++        {
++            // GLES2 attaches packed depth-stencil storage to both attachment points; the combined target is GLES3.
++            attachment_targets[0] = GL_DEPTH_ATTACHMENT;
++            attachment_targets[1] = GL_STENCIL_ATTACHMENT;
++            return 2;
++        }
++    #endif
++
++    #ifdef GL_DEPTH_STENCIL_ATTACHMENT
++        attachment_targets[0] = GL_DEPTH_STENCIL_ATTACHMENT;
++        return 1;
++    #else
++        attachment_targets[0] = GL_DEPTH_ATTACHMENT;
++        attachment_targets[1] = GL_STENCIL_ATTACHMENT;
++        return 2;
++    #endif
++    }
++
+     static void ApplyRenderTargetAttachments(HContext _context, OpenGLRenderTarget* rt, bool update_current)
+     {
+         OpenGLContext* context = (OpenGLContext*) _context;
+@@ -4275,15 +4215,9 @@ static void LogFrameBufferError(GLenum status)
+                 glBindRenderbuffer(GL_RENDERBUFFER, GetGLHandle(context, rt->m_DepthStencilAttachment.m_Buffer));
+                 glRenderbufferStorage(GL_RENDERBUFFER, DMGRAPHICS_RENDER_BUFFER_FORMAT_DEPTH_STENCIL, rt->m_Base.m_DepthStencilTextureParams.m_Width, rt->m_Base.m_DepthStencilTextureParams.m_Height);
+                 CHECK_GL_ERROR;
+-    #ifdef GL_DEPTH_STENCIL_ATTACHMENT
+-                // if we have the capability of GL_DEPTH_STENCIL_ATTACHMENT, create a single combined depth-stencil buffer
+-                GLenum attachments[] = { GL_DEPTH_STENCIL_ATTACHMENT };
+-                AttachRenderTargetAttachment(context, rt->m_DepthStencilAttachment, rt->m_Base.m_TextureDepthStencil, attachments, DM_ARRAY_SIZE(attachments));
+-    #else
+-                // create a depth-stencil that has the same buffer attached to both GL_DEPTH_ATTACHMENT and GL_STENCIL_ATTACHMENT (typical ES <= 2.0)
+-                GLenum attachments[] = { GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
+-                AttachRenderTargetAttachment(context, rt->m_DepthStencilAttachment, rt->m_Base.m_TextureDepthStencil, attachments, DM_ARRAY_SIZE(attachments));
+-    #endif
++                GLenum attachments[2];
++                uint32_t attachment_count = GetDepthStencilAttachmentTargets(context, attachments);
++                AttachRenderTargetAttachment(context, rt->m_DepthStencilAttachment, rt->m_Base.m_TextureDepthStencil, attachments, attachment_count);
+                 glBindRenderbuffer(GL_RENDERBUFFER, 0);
+             }
+             else if (rt->m_DepthStencilAttachment.m_Type == ATTACHMENT_TYPE_TEXTURE)
+@@ -4296,21 +4230,25 @@ static void LogFrameBufferError(GLenum status)
+                 CHECK_GL_ERROR;
+ 
+                  // The data type (DMGRAPHICS_TYPE_UNSIGNED_INT_24_8) might change later when we introduce 32f depth formats
++                GLint depth_stencil_internal_format = DMGRAPHICS_RENDER_BUFFER_FORMAT_DEPTH24_STENCIL8;
++            #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++                if (!context->m_IsGles3Version)
++                {
++                    // OES_packed_depth_stencil requires matching unsized formats for GLES2 textures.
++                    depth_stencil_internal_format = DMGRAPHICS_FORMAT_DEPTH_STENCIL;
++                }
++            #endif
+                 glTexImage2D(GL_TEXTURE_2D, 0,
+-                    DMGRAPHICS_RENDER_BUFFER_FORMAT_DEPTH24_STENCIL8,
++                    depth_stencil_internal_format,
+                     rt->m_Base.m_DepthStencilTextureParams.m_Width,
+                     rt->m_Base.m_DepthStencilTextureParams.m_Height,
+                     0, DMGRAPHICS_FORMAT_DEPTH_STENCIL, DMGRAPHICS_TYPE_UNSIGNED_INT_24_8, 0);
+                 CHECK_GL_ERROR;
+ 
+                 glBindTexture(GL_TEXTURE_2D, 0);
+-            #ifdef GL_DEPTH_STENCIL_ATTACHMENT
+-                GLenum attachments[] = { GL_DEPTH_STENCIL_ATTACHMENT };
+-                AttachRenderTargetAttachment(context, rt->m_DepthStencilAttachment, rt->m_Base.m_TextureDepthStencil, attachments, DM_ARRAY_SIZE(attachments));
+-            #else
+-                GLenum attachments[] = { GL_DEPTH_ATTACHMENT, GL_STENCIL_ATTACHMENT };
+-                AttachRenderTargetAttachment(context, rt->m_DepthStencilAttachment, rt->m_Base.m_TextureDepthStencil, attachments, DM_ARRAY_SIZE(attachments));
+-            #endif
++                GLenum attachments[2];
++                uint32_t attachment_count = GetDepthStencilAttachmentTargets(context, attachments);
++                AttachRenderTargetAttachment(context, rt->m_DepthStencilAttachment, rt->m_Base.m_TextureDepthStencil, attachments, attachment_count);
+             }
+             else
+             {
+@@ -4375,6 +4313,24 @@ static void LogFrameBufferError(GLenum status)
+             BUFFER_TYPE_COLOR3_BIT,
+         };
+ 
++    #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++        bool depth_texture_supported = context->m_IsGles3Version ||
++            OpenGLIsExtensionSupported(_context, "GL_OES_depth_texture") ||
++            OpenGLIsExtensionSupported(_context, "GL_ANGLE_depth_texture");
++        if (depth_texture && !depth_texture_supported)
++        {
++            // ANGLE D3D9 does not expose depth textures, so keep the render target usable with a renderbuffer.
++            dmLogWarning("Depth textures are not supported by this OpenGL ES context, defaulting to render buffer.");
++            depth_texture = false;
++        }
++        if (depth_texture && use_stencil_attachment && !context->m_PackedDepthStencilSupport)
++        {
++            // A shared GLES2 depth-stencil texture also requires OES_packed_depth_stencil.
++            dmLogWarning("Packed depth-stencil textures are not supported by this OpenGL ES context, defaulting to render buffer.");
++            depth_texture = false;
++        }
++    #endif
++
+         // NOTE: Regarding this, the OpenGL context we create is to low on all current desktop platforms to use, but it should work for the other adapters.
+         if (stencil_texture)
+         {
+@@ -5553,6 +5509,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
