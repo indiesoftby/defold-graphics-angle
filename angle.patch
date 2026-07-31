@@ -106,7 +106,7 @@ index 63682194df..ec273c9d4e 100644
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index eff50fc44b..39002f61d1 100644
+index eff50fc44b..bcfcbc0950 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -348,7 +348,22 @@ index eff50fc44b..39002f61d1 100644
          context->m_IsGles3Version   = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState    = GetDefaultPipelineState();
          context->m_PipelineStateDirty = context->m_PipelineState;
-@@ -1708,7 +1494,12 @@ static void LogFrameBufferError(GLenum status)
+@@ -1641,6 +1427,14 @@ static void LogFrameBufferError(GLenum status)
+             context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA_BC3; // DXT5
+         }
+ 
++    #if defined(_WIN32) && defined(DM_GRAPHICS_USE_OPENGLES)
++        // ANGLE exposes DXT1 and DXT5 separately instead of the combined S3TC extension.
++        if (OpenGLIsExtensionSupported(_context, "GL_EXT_texture_compression_dxt1"))
++            context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGB_BC1;
++        if (OpenGLIsExtensionSupported(_context, "GL_ANGLE_texture_compression_dxt5"))
++            context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA_BC3;
++    #endif
++
+         // https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_texture_compression_rgtc.txt
+         if (OpenGLIsExtensionSupported(_context, "GL_ARB_texture_compression_rgtc") ||
+             OpenGLIsExtensionSupported(_context, "GL_EXT_texture_compression_rgtc") ||
+@@ -1708,7 +1502,12 @@ static void LogFrameBufferError(GLenum status)
              }
  
              // https://registry.khronos.org/webgl/extensions/ANGLE_instanced_arrays/
@@ -362,7 +377,7 @@ index eff50fc44b..39002f61d1 100644
              {
                  context->m_InstancingSupport = 1;
              }
-@@ -1871,6 +1662,11 @@ static void LogFrameBufferError(GLenum status)
+@@ -1871,6 +1670,11 @@ static void LogFrameBufferError(GLenum status)
  #endif
  
      #ifdef DM_HAVE_OPENGL_COMPUTE_SUPPORT
@@ -374,7 +389,7 @@ index eff50fc44b..39002f61d1 100644
          int32_t version_major = 0, version_minor = 0;
          glGetIntegerv(DMGRAPHICS_MAJOR_VERSION, &version_major);
          glGetIntegerv(DMGRAPHICS_MINOR_VERSION, &version_minor);
-@@ -1888,6 +1684,7 @@ static void LogFrameBufferError(GLenum status)
+@@ -1888,6 +1692,7 @@ static void LogFrameBufferError(GLenum status)
          context->m_ComputeSupport &= glBindImageTexture != 0;
  
          #undef COMPUTE_VERSION_NEEDED
@@ -382,7 +397,7 @@ index eff50fc44b..39002f61d1 100644
      #endif
  
          // GL_MIN/GL_MAX blend equations are core in GLES3+ and desktop GL.
-@@ -2046,7 +1843,12 @@ static void LogFrameBufferError(GLenum status)
+@@ -2046,7 +1851,12 @@ static void LogFrameBufferError(GLenum status)
              }
          }
  
@@ -395,7 +410,7 @@ index eff50fc44b..39002f61d1 100644
          {
              GLuint handle;
              glGenVertexArrays(1, &handle);
-@@ -2545,7 +2347,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -2545,7 +2355,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -415,7 +430,7 @@ index eff50fc44b..39002f61d1 100644
              CHECK_GL_ERROR;
          }
      }
-@@ -2557,7 +2371,12 @@ static void LogFrameBufferError(GLenum status)
+@@ -2557,7 +2379,12 @@ static void LogFrameBufferError(GLenum status)
  
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -428,7 +443,7 @@ index eff50fc44b..39002f61d1 100644
              glBindVertexArray(GetGLHandle(context, context->m_GlobalVAO));
  
          if (context->m_ModificationVersion != vertex_declaration->m_ModificationVersion || vertex_declaration->m_BoundForProgram != program)
-@@ -2645,10 +2464,20 @@ static void LogFrameBufferError(GLenum status)
+@@ -2645,10 +2472,20 @@ static void LogFrameBufferError(GLenum status)
          case TEXTURE_FORMAT_LUMINANCE:
              gl_format          = DMGRAPHICS_TEXTURE_FORMAT_LUMINANCE;
              gl_internal_format = DMGRAPHICS_TEXTURE_FORMAT_LUMINANCE;
@@ -449,7 +464,7 @@ index eff50fc44b..39002f61d1 100644
              break;
          case TEXTURE_FORMAT_RGB:
              gl_format          = DMGRAPHICS_TEXTURE_FORMAT_RGB;
-@@ -3063,7 +2892,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -3063,7 +2900,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -469,7 +484,7 @@ index eff50fc44b..39002f61d1 100644
              CHECK_GL_ERROR;
          }
          else
-@@ -3084,7 +2925,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -3084,7 +2933,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -489,7 +504,7 @@ index eff50fc44b..39002f61d1 100644
              CHECK_GL_ERROR;
          }
          else
-@@ -5553,6 +5406,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -5553,6 +5414,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
