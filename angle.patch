@@ -1,20 +1,3 @@
-diff --git a/build_tools/sdk.py b/build_tools/sdk.py
-index 82ef7eeb4e..1aa3fcd57b 100644
---- a/build_tools/sdk.py
-+++ b/build_tools/sdk.py
-@@ -79,9 +79,9 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
- # Win32
- 
- # The version we have prepackaged
--VERSION_WINDOWS_SDK="10.0.28000.0"
--VISUAL_STUDIO_VERSION="2026"
--VERSION_WINDOWS_MSVC="14.51.36231"
-+VERSION_WINDOWS_SDK=os.environ.get('VERSION_WINDOWS_SDK', "10.0.28000.0")
-+VISUAL_STUDIO_VERSION=os.environ.get('VISUAL_STUDIO_VERSION', "2026")
-+VERSION_WINDOWS_MSVC=os.environ.get('VERSION_WINDOWS_MSVC', "14.51.36231")
- PACKAGES_WIN32_TOOLCHAIN=f"Microsoft-Visual-Studio-{VISUAL_STUDIO_VERSION}-{VERSION_WINDOWS_MSVC}"
- PACKAGES_WIN32_SDK=f"WindowsKits-{VERSION_WINDOWS_SDK}"
- 
 diff --git a/build_tools/waf_dynamo.py b/build_tools/waf_dynamo.py
 index c5dd5d2fff..2f7b5205e8 100644
 --- a/build_tools/waf_dynamo.py
