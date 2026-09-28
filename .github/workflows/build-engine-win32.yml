@@ -3,29 +3,27 @@
 
 name: Build Defold Win32
 
-# Controls when the workflow will run
 on:
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
   push:
     branches:
-      - main
+      - '**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  DM_PACKAGES_URL: ./local_sdks
   BUILD_BRANCH: ${{ vars.BUILD_BRANCH }}
   RELEASE_TAG: ${{ vars.RELEASE_TAG }}
-  # Settings / Secrets and variables / Actions / Variables (tab) -> 
-  #   New repository variable -> 
-  #   `WIN32_SDK_RUN_ID` = copy-paste from the run id of the `package-win32-sdk.yml` run, i.e.
-  #   "https://github.com/example/repo/actions/runs/12397740775" <- 12397740775 is the run id
-  WIN32_SDK_RUN_ID: ${{ vars.WIN32_SDK_RUN_ID }}
-  VERSION_WINDOWS_SDK: ${{ vars.VERSION_WINDOWS_SDK }}
-  VERSION_WINDOWS_MSVC: ${{ vars.VERSION_WINDOWS_MSVC }}
 
 jobs:
   bld-eng-windows:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - platform: x86_64-win32
@@ -33,6 +31,7 @@ jobs:
           - platform: win32
             artifact_platform: x86-win32
     runs-on: windows-2025-vs2026
+    timeout-minutes: 45
     steps:
       - name: Checkout Defold
         uses: actions/checkout@v5
@@ -56,16 +55,6 @@ jobs:
           cp patch/angle-06e6c6b5-x86_64-win32.tar.gz packages/
           cp patch/angle-06e6c6b5-win32.tar.gz packages/
 
-      - name: Download SDKs
-        uses: actions/download-artifact@v7
-        with:
-          name: local_sdks
-          path: local_sdks
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ env.WIN32_SDK_RUN_ID }}
-      - shell: bash
-        run: ls -l local_sdks
-
       - name: Install Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
         with:
@@ -85,13 +74,36 @@ jobs:
         with:
           dotnet-version: '9.x'
 
-      - name: Install dependencies
-        shell: bash
-        run: ci/ci.sh install --platform=${{ matrix.platform }}
-
       - name: Build
+        id: build
         shell: bash
-        run: ci/ci.sh --platform=${{ matrix.platform }} --skip-builtins --skip-tests --skip-build-tests --skip-docs engine
+        run: |
+          # Use the runner's Visual Studio and Windows SDK. ci.sh engine downloads packaged SDKs.
+          build_original_path="$PATH"
+          python scripts/build.py save_env --save-env-path=ci/env.sh
+          source ci/env.sh
+          export PATH="$PATH:$build_original_path"
+          python -u scripts/build.py install_ext check_sdk build_ext build_engine \
+            --platform=${{ matrix.platform }} --disable-ccache \
+            --skip-builtins --skip-tests --skip-docs -- --skip-build-tests 2>&1 | tee build.log
+
+      - name: Report build failure
+        if: failure() && steps.build.outcome == 'failure'
+        shell: python
+        run: |
+          from pathlib import Path
+          log = Path("build.log")
+          if log.exists():
+              tail = "\n".join(log.read_text(encoding="utf-8", errors="replace").splitlines()[-80:])
+              tail = tail.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+              print(f"::error title=Windows engine build failed::{tail}")
+
+      - name: Upload build log
+        if: always() && steps.build.outcome != 'skipped'
+        uses: actions/upload-artifact@v6
+        with:
+          name: build-log-${{ matrix.platform }}
+          path: build.log
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v6
@@ -103,7 +115,7 @@ jobs:
 
   package-extension:
     needs: bld-eng-windows
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
@@ -147,7 +159,15 @@ jobs:
         run: |
           zip -r "graphics_angle-defold-${{ env.BUILD_BRANCH }}.zip" "extension"
 
+      - name: Upload extension archive
+        uses: actions/upload-artifact@v6
+        with:
+          name: graphics-angle-extension
+          path: graphics_angle-defold-${{ env.BUILD_BRANCH }}.zip
+          if-no-files-found: error
+
       - name: Release extension archive
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ env.RELEASE_TAG }}

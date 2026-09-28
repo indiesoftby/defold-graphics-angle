@@ -1,35 +1,18 @@
-diff --git a/build_tools/sdk.py b/build_tools/sdk.py
-index 87bf940697..2dd297998c 100644
---- a/build_tools/sdk.py
-+++ b/build_tools/sdk.py
-@@ -83,9 +83,9 @@ ANDROID_64_NDK_API_VERSION='21' # Android 5.0
- # Win32
- 
- # The version we have prepackaged
--VERSION_WINDOWS_SDK="10.0.28000.0"
--VISUAL_STUDIO_VERSION="2026"
--VERSION_WINDOWS_MSVC="14.51.36231"
-+VERSION_WINDOWS_SDK=os.environ.get('VERSION_WINDOWS_SDK', "10.0.28000.0")
-+VISUAL_STUDIO_VERSION=os.environ.get('VISUAL_STUDIO_VERSION', "2026")
-+VERSION_WINDOWS_MSVC=os.environ.get('VERSION_WINDOWS_MSVC', "14.51.36231")
- PACKAGES_WIN32_TOOLCHAIN=f"Microsoft-Visual-Studio-{VISUAL_STUDIO_VERSION}-{VERSION_WINDOWS_MSVC}"
- PACKAGES_WIN32_SDK=f"WindowsKits-{VERSION_WINDOWS_SDK}"
- 
 diff --git a/build_tools/waf_dynamo.py b/build_tools/waf_dynamo.py
-index c5ebd801ec..9d8a4edcc5 100644
+index c5dd5d2fff..2f7b5205e8 100644
 --- a/build_tools/waf_dynamo.py
 +++ b/build_tools/waf_dynamo.py
 @@ -82,7 +82,7 @@ def platform_supports_feature(platform, feature, data):
      if feature == 'opengl_compute':
-         return platform not in ['wasm-web', 'wasm_pthread-web', 'x86_64-ios', 'arm64-ios', 'arm64-macos', 'x86_64-macos']
+         return platform not in ['wasm-web', 'wasm_pthread-web', 'arm64-ios', 'arm64_sim-ios', 'arm64-macos', 'x86_64-macos']
      if feature == 'opengles':
--        return platform in ['arm64-linux', 'armv7-android', 'arm64-android', 'x86_64-ios', 'arm64-ios']
-+        return platform in ['arm64-linux', 'armv7-android', 'arm64-android', 'x86_64-ios', 'arm64-ios', 'x86_64-win32', 'win32']
+-        return platform in ['arm64-linux', 'armv7-android', 'arm64-android', 'x86_64-android', 'arm64-ios', 'arm64_sim-ios']
++        return platform in ['arm64-linux', 'armv7-android', 'arm64-android', 'x86_64-android', 'arm64-ios', 'arm64_sim-ios', 'x86_64-win32', 'win32']
      if feature == 'webgpu':
          return platform in ['wasm-web', 'wasm_pthread-web']
      if feature == 'metal':
 @@ -265,6 +265,9 @@ def platform_graphics_libs_and_symbols(platform):
-     elif platform in ('armv7-android', 'arm64-android'):
+     elif platform in ('armv7-android', 'arm64-android', 'x86_64-android'):
          use_opengles = Options.options.with_opengl or not Options.options.with_vulkan
          use_vulkan = Options.options.with_vulkan or not Options.options.with_opengl
 +    elif platform in ('x86_64-win32', 'win32'):
@@ -39,28 +22,28 @@ index c5ebd801ec..9d8a4edcc5 100644
          use_opengl = True
          use_vulkan = Options.options.with_vulkan
 diff --git a/engine/engine/wscript b/engine/engine/wscript
-index b80a8d583d..021df90350 100644
+index 45e2e5f37c..5cba423ba0 100644
 --- a/engine/engine/wscript
 +++ b/engine/engine/wscript
 @@ -124,7 +124,7 @@ def configure(conf):
          conf.env['STLIB_CPP_RUNTIME'] = 'c++_static'
  
      elif target_os == TargetOS.WINDOWS:
--        conf.env.append_value('LINKFLAGS', ['opengl32.lib', 'user32.lib', 'shell32.lib', 'xinput9_1_0.lib', 'dbghelp.lib', 'dinput8.lib', 'dxguid.lib'])
-+        conf.env.append_value('LINKFLAGS', ['libEGL.dll.lib', 'libGLESv2.dll.lib', 'user32.lib', 'shell32.lib', 'xinput9_1_0.lib', 'dbghelp.lib', 'dinput8.lib', 'dxguid.lib'])
+-        conf.env.append_value('LINKFLAGS', ['opengl32.lib', 'user32.lib', 'shell32.lib', 'winmm.lib', 'xinput9_1_0.lib', 'dbghelp.lib', 'dinput8.lib', 'dxguid.lib'])
++        conf.env.append_value('LINKFLAGS', ['libEGL.dll.lib', 'libGLESv2.dll.lib', 'user32.lib', 'shell32.lib', 'winmm.lib', 'xinput9_1_0.lib', 'dbghelp.lib', 'dinput8.lib', 'dxguid.lib'])
  
          if waflib.Options.options.with_vulkan:
              conf.env.append_value('LINKFLAGS', ['vulkan-1.lib'])
 diff --git a/engine/graphics/CMakeLists.txt b/engine/graphics/CMakeLists.txt
-index 38a7ffe5a3..eeac5ec4bc 100644
+index bd8129abd4..a6fac06255 100644
 --- a/engine/graphics/CMakeLists.txt
 +++ b/engine/graphics/CMakeLists.txt
-@@ -159,9 +159,12 @@ endif()
- if(TARGET_PLATFORM STREQUAL "x86_64-ios")
+@@ -161,9 +161,12 @@ endif()
+ if(TARGET_PLATFORM STREQUAL "arm64_sim-ios")
    set(GRAPHICS_PLATFORM_SUPPORTS_VULKAN OFF)
  endif()
--if(TARGET_PLATFORM MATCHES "^(arm64-linux|armv7-android|arm64-android|x86_64-ios|arm64-ios)$")
-+if(TARGET_PLATFORM MATCHES "^(arm64-linux|armv7-android|arm64-android|x86_64-ios|arm64-ios|x86-win32|x86_64-win32)$")
+-if(TARGET_PLATFORM MATCHES "^(arm64-linux|armv7-android|arm64-android|x86_64-android|arm64-ios|arm64_sim-ios)$")
++if(TARGET_PLATFORM MATCHES "^(arm64-linux|armv7-android|arm64-android|x86_64-android|arm64-ios|arm64_sim-ios|x86-win32|x86_64-win32)$")
    set(GRAPHICS_PLATFORM_SUPPORTS_OPENGLES ON)
  endif()
 +if(TARGET_PLATFORM MATCHES "^(x86-win32|x86_64-win32)$")
@@ -69,7 +52,7 @@ index 38a7ffe5a3..eeac5ec4bc 100644
  if(TARGET_PLATFORM STREQUAL "x86_64-win32")
    set(GRAPHICS_PLATFORM_SUPPORTS_DX12 ON)
  endif()
-@@ -232,6 +235,10 @@ if(GRAPHICS_BUILD_OPENGLES)
+@@ -237,6 +240,10 @@ if(GRAPHICS_BUILD_OPENGLES)
    graphics_common_setup(graphics_opengles)
    target_include_directories(graphics_opengles PUBLIC "${GRAPHICS_SRC_DIR}/opengl")
    target_compile_definitions(graphics_opengles PUBLIC DM_GRAPHICS_USE_OPENGLES)
@@ -77,18 +60,19 @@ index 38a7ffe5a3..eeac5ec4bc 100644
 +    # Win32 OpenGLES links against ANGLE and enables its backend-specific paths.
 +    target_compile_definitions(graphics_opengles PRIVATE DM_GRAPHICS_USE_ANGLE)
 +  endif()
-   if(NOT TARGET_PLATFORM MATCHES "^(x86_64-ios|arm64-ios)$")
+   if(NOT TARGET_PLATFORM MATCHES "^(arm64-ios|arm64_sim-ios)$")
      target_compile_definitions(graphics_opengles PUBLIC DM_HAVE_OPENGL_COMPUTE_SUPPORT)
    endif()
 diff --git a/engine/graphics/src/graphics.cpp b/engine/graphics/src/graphics.cpp
-index 63682194df..ec273c9d4e 100644
+index 9b0481bf6d..637d7f149e 100644
 --- a/engine/graphics/src/graphics.cpp
 +++ b/engine/graphics/src/graphics.cpp
-@@ -368,6 +368,31 @@ namespace dmGraphics
+@@ -372,6 +372,34 @@ namespace dmGraphics
      {
          ShaderDesc::Shader* selected_shader = 0x0;
  
-+        // Prefer GLES SM300 shaders if available (e.g. for GLES3/WebGL2 contexts).
++    #if defined(DM_GRAPHICS_USE_ANGLE)
++        // Prefer GLES SM300 shaders when the ANGLE context supports GLES3.
 +        for(uint32_t i = 0; i < shader_desc->m_Shaders.m_Count; ++i)
 +        {
 +            ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
@@ -113,11 +97,13 @@ index 63682194df..ec273c9d4e 100644
 +            }
 +        }
 +
++    #endif
++
          for(uint32_t i = 0; i < shader_desc->m_Shaders.m_Count; ++i)
          {
              ShaderDesc::Shader* shader = &shader_desc->m_Shaders.m_Data[i];
 diff --git a/engine/graphics/src/opengl/graphics_opengl.cpp b/engine/graphics/src/opengl/graphics_opengl.cpp
-index eff50fc44b..95e8aedaf0 100644
+index 67915c3ec7..1b5dc98a53 100644
 --- a/engine/graphics/src/opengl/graphics_opengl.cpp
 +++ b/engine/graphics/src/opengl/graphics_opengl.cpp
 @@ -14,6 +14,7 @@
@@ -251,7 +237,7 @@ index eff50fc44b..95e8aedaf0 100644
  #elif defined(__EMSCRIPTEN__)
      #include <GL/glext.h>
      #if defined GL_ES_VERSION_2_0
-@@ -1207,7 +1094,7 @@ static void LogFrameBufferError(GLenum status)
+@@ -1242,7 +1129,7 @@ static void LogFrameBufferError(GLenum status)
              1) ARB - Extensions officially approved by the OpenGL Architecture Review Board
              2) EXT - Extensions agreed upon by multiple OpenGL vendors
              3) OES - Vendor specific code for the OpenGL ES working group
@@ -260,21 +246,25 @@ index eff50fc44b..95e8aedaf0 100644
          */
          uintptr_t func = 0x0;
  
-@@ -1238,9 +1125,11 @@ static void LogFrameBufferError(GLenum status)
+@@ -1273,9 +1160,15 @@ static void LogFrameBufferError(GLenum status)
              }
          }
      #if !defined(__EMSCRIPTEN__)
 -        if(func == 0 && core_name)
++        bool core_function_supported = true;
++    #if defined(DM_GRAPHICS_USE_ANGLE)
++        // ANGLE exports GLES3 symbols even for GLES2 contexts.
 +        OpenGLContext* context = (OpenGLContext*) _context;
-+        bool core_function_supported = !context->m_IsShaderLanguageGles || context->m_IsGles3Version;
++        core_function_supported = context->m_IsGles3Version;
++    #endif
 +        if(func == 0 && core_name && core_function_supported)
          {
 -            // On OpenGL, optionally check for core driver support if extension wasn't found (i.e extension has become part of core OpenGL)
-+            // ANGLE exports GLES3 symbols for GLES2 contexts, so core lookup must follow the runtime context version.
++            // Use core driver support when the extension has become part of core OpenGL.
              func = dmPlatform::GetProcAddress(window, core_name);
          }
      #endif
-@@ -1366,107 +1255,6 @@ static void LogFrameBufferError(GLenum status)
+@@ -1401,107 +1294,6 @@ static void LogFrameBufferError(GLenum status)
          assert(_context);
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -382,35 +372,41 @@ index eff50fc44b..95e8aedaf0 100644
          context->m_IsGles3Version   = 1; // 0 == gles 2, 1 == gles 3
          context->m_PipelineState    = GetDefaultPipelineState();
          context->m_PipelineStateDirty = context->m_PipelineState;
-@@ -1641,6 +1429,12 @@ static void LogFrameBufferError(GLenum status)
+@@ -1695,6 +1487,14 @@ static void LogFrameBufferError(GLenum status)
              context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA_BC3; // DXT5
          }
  
++    #if defined(DM_GRAPHICS_USE_ANGLE)
 +        // Native ANGLE may expose DXT1 and DXT5 separately instead of the combined S3TC extension.
 +        if (OpenGLIsExtensionSupported(_context, "GL_EXT_texture_compression_dxt1"))
 +            context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGB_BC1;
 +        if (OpenGLIsExtensionSupported(_context, "GL_ANGLE_texture_compression_dxt5"))
 +            context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA_BC3;
++    #endif
 +
          // https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_texture_compression_rgtc.txt
          if (OpenGLIsExtensionSupported(_context, "GL_ARB_texture_compression_rgtc") ||
              OpenGLIsExtensionSupported(_context, "GL_EXT_texture_compression_rgtc") ||
-@@ -1694,7 +1488,10 @@ static void LogFrameBufferError(GLenum status)
+@@ -1747,7 +1547,13 @@ static void LogFrameBufferError(GLenum status)
          else
          {
              // https://registry.khronos.org/OpenGL/extensions/EXT/EXT_color_buffer_half_float.txt
 -            if (OpenGLIsExtensionSupported(_context, "EXT_color_buffer_half_float"))
-+            if (OpenGLIsExtensionSupported(_context, "EXT_color_buffer_half_float") ||
++            if (OpenGLIsExtensionSupported(_context, "EXT_color_buffer_half_float")
++            #if defined(DM_GRAPHICS_USE_ANGLE)
 +                // Native ANGLE exposes GL-prefixed ES extension names instead of WebGL names.
-+                (OpenGLIsExtensionSupported(_context, "GL_EXT_color_buffer_half_float") &&
-+                 OpenGLIsExtensionSupported(_context, "GL_OES_texture_half_float")))
++                || (OpenGLIsExtensionSupported(_context, "GL_EXT_color_buffer_half_float") &&
++                    OpenGLIsExtensionSupported(_context, "GL_OES_texture_half_float"))
++            #endif
++            )
              {
                  context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGB16F;
                  context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA16F;
-@@ -1707,8 +1504,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -1760,8 +1566,24 @@ static void LogFrameBufferError(GLenum status)
                  context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA32F;
              }
  
++        #if defined(DM_GRAPHICS_USE_ANGLE)
 +            if (OpenGLIsExtensionSupported(_context, "GL_OES_texture_float"))
 +            {
 +                // ANGLE D3D9 advertises RGB and RGBA float renderability as separate CHROMIUM extensions.
@@ -419,16 +415,20 @@ index eff50fc44b..95e8aedaf0 100644
 +                if (OpenGLIsExtensionSupported(_context, "GL_CHROMIUM_color_buffer_float_rgba"))
 +                    context->m_BaseContext.m_TextureFormatSupport |= 1ULL << TEXTURE_FORMAT_RGBA32F;
 +            }
++        #endif
 +
              // https://registry.khronos.org/webgl/extensions/ANGLE_instanced_arrays/
 -            if (OpenGLIsExtensionSupported(_context, "ANGLE_instanced_arrays"))
-+            if (OpenGLIsExtensionSupported(_context, "ANGLE_instanced_arrays") ||
++            if (OpenGLIsExtensionSupported(_context, "ANGLE_instanced_arrays")
++            #if defined(DM_GRAPHICS_USE_ANGLE)
 +                // Native ANGLE exposes the GL-prefixed extension name instead of the WebGL name.
-+                OpenGLIsExtensionSupported(_context, "GL_ANGLE_instanced_arrays"))
++                || OpenGLIsExtensionSupported(_context, "GL_ANGLE_instanced_arrays")
++            #endif
++            )
              {
                  context->m_InstancingSupport = 1;
              }
-@@ -1871,6 +1679,11 @@ static void LogFrameBufferError(GLenum status)
+@@ -1943,6 +1765,11 @@ static void LogFrameBufferError(GLenum status)
  #endif
  
      #ifdef DM_HAVE_OPENGL_COMPUTE_SUPPORT
@@ -440,7 +440,7 @@ index eff50fc44b..95e8aedaf0 100644
          int32_t version_major = 0, version_minor = 0;
          glGetIntegerv(DMGRAPHICS_MAJOR_VERSION, &version_major);
          glGetIntegerv(DMGRAPHICS_MINOR_VERSION, &version_minor);
-@@ -1888,6 +1701,7 @@ static void LogFrameBufferError(GLenum status)
+@@ -1960,6 +1787,7 @@ static void LogFrameBufferError(GLenum status)
          context->m_ComputeSupport &= glBindImageTexture != 0;
  
          #undef COMPUTE_VERSION_NEEDED
@@ -448,7 +448,7 @@ index eff50fc44b..95e8aedaf0 100644
      #endif
  
          // GL_MIN/GL_MAX blend equations are core in GLES3+ and desktop GL.
-@@ -2046,12 +1860,26 @@ static void LogFrameBufferError(GLenum status)
+@@ -2123,12 +1951,26 @@ static void LogFrameBufferError(GLenum status)
              }
          }
  
@@ -475,7 +475,7 @@ index eff50fc44b..95e8aedaf0 100644
  
          SetSwapInterval(_context, params.m_SwapInterval);
  
-@@ -2545,7 +2373,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -2622,7 +2464,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -495,7 +495,7 @@ index eff50fc44b..95e8aedaf0 100644
              CHECK_GL_ERROR;
          }
      }
-@@ -2557,8 +2397,20 @@ static void LogFrameBufferError(GLenum status)
+@@ -2634,8 +2488,20 @@ static void LogFrameBufferError(GLenum status)
  
          OpenGLContext* context = (OpenGLContext*) _context;
  
@@ -516,7 +516,7 @@ index eff50fc44b..95e8aedaf0 100644
  
          if (context->m_ModificationVersion != vertex_declaration->m_ModificationVersion || vertex_declaration->m_BoundForProgram != program)
          {
-@@ -2639,16 +2491,27 @@ static void LogFrameBufferError(GLenum status)
+@@ -2716,16 +2582,27 @@ static void LogFrameBufferError(GLenum status)
      #else
          #define ANDROID_ES2_BACKWARDS_COMPAT(var, value)
      #endif
@@ -544,7 +544,7 @@ index eff50fc44b..95e8aedaf0 100644
              break;
          case TEXTURE_FORMAT_RGB:
              gl_format          = DMGRAPHICS_TEXTURE_FORMAT_RGB;
-@@ -2707,12 +2570,16 @@ static void LogFrameBufferError(GLenum status)
+@@ -2789,12 +2666,16 @@ static void LogFrameBufferError(GLenum status)
              EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGB);
              EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
              ANDROID_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
@@ -561,7 +561,7 @@ index eff50fc44b..95e8aedaf0 100644
              break;
          case TEXTURE_FORMAT_RGBA16F:
              gl_type            = DMGRAPHICS_TYPE_HALF_FLOAT;
-@@ -2721,12 +2588,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -2803,12 +2684,15 @@ static void LogFrameBufferError(GLenum status)
              EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_internal_format, DMGRAPHICS_TEXTURE_FORMAT_RGBA);
              EMSCRIPTEN_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
              ANDROID_ES2_BACKWARDS_COMPAT(gl_type, DMGRAPHICS_TYPE_HALF_FLOAT_OES);
@@ -577,7 +577,7 @@ index eff50fc44b..95e8aedaf0 100644
              break;
          case TEXTURE_FORMAT_R16F:
              gl_type            = DMGRAPHICS_TYPE_HALF_FLOAT;
-@@ -2754,6 +2624,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -2836,6 +2720,15 @@ static void LogFrameBufferError(GLenum status)
              gl_type            = GL_FLOAT;
              gl_format          = GL_DEPTH_COMPONENT;
              gl_internal_format = GetDepthBufferFormat(context);
@@ -593,15 +593,15 @@ index eff50fc44b..95e8aedaf0 100644
          #ifdef __EMSCRIPTEN__
              gl_type            = GL_UNSIGNED_INT;
              gl_internal_format = context->m_IsGles3Version ? GL_DEPTH_COMPONENT24 : DMGRAPHICS_RENDER_BUFFER_FORMAT_DEPTH16;
-@@ -2769,6 +2648,7 @@ static void LogFrameBufferError(GLenum status)
+@@ -2851,6 +2744,7 @@ static void LogFrameBufferError(GLenum status)
      #undef ES2_ENUM_WORKAROUND
      #undef EMSCRIPTEN_ES2_BACKWARDS_COMPAT
      #undef ANDROID_ES2_BACKWARDS_COMPAT
 +    #undef ANGLE_ES2_BACKWARDS_COMPAT
      }
  
- #ifdef DM_HAVE_OPENGL_COMPUTE_SUPPORT
-@@ -3063,7 +2943,19 @@ static void LogFrameBufferError(GLenum status)
+     static bool BindComputeImage(OpenGLContext* context, OpenGLTexture* tex, uint32_t unit, uint32_t id_index, Type type, bool do_unbind = false)
+@@ -3124,7 +3018,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -621,7 +621,7 @@ index eff50fc44b..95e8aedaf0 100644
              CHECK_GL_ERROR;
          }
          else
-@@ -3084,7 +2976,19 @@ static void LogFrameBufferError(GLenum status)
+@@ -3145,7 +3051,19 @@ static void LogFrameBufferError(GLenum status)
  
          if (context->m_InstancingSupport)
          {
@@ -641,51 +641,7 @@ index eff50fc44b..95e8aedaf0 100644
              CHECK_GL_ERROR;
          }
          else
-@@ -3155,6 +3059,7 @@ static void LogFrameBufferError(GLenum status)
-                 glGetShaderInfoLog(shader_id, logLength, &logLength, log_str);
-             }
- #endif
-+
-             if (error_buffer)
-             {
-                 dmSnPrintf(error_buffer, error_buffer_size, "Unable to compile %s shader.\nError: %s", type_str, log_str == 0 ? "Unknown" : log_str);
-@@ -3791,6 +3696,12 @@ static void LogFrameBufferError(GLenum status)
-         {
-         #ifdef DM_HAVE_OPENGL_COMPUTE_SUPPORT
-             OpenGLShader* compute_shader = CreateShader(_context, DMGRAPHICS_TYPE_COMPUTE_SHADER, ddf_cp, error_buffer, error_buffer_size);
-+            if (!compute_shader)
-+            {
-+                // A failed shader compilation must return the compiler error instead of entering program setup with a null shader.
-+                delete program;
-+                return 0;
-+            }
-             if (!SetupComputeProgram(context, program, compute_shader))
-             {
-                 DeleteShader(context, compute_shader);
-@@ -3804,7 +3715,22 @@ static void LogFrameBufferError(GLenum status)
-         else
-         {
-             OpenGLShader* vertex_shader = CreateShader(_context, GL_VERTEX_SHADER, ddf_vp, error_buffer, error_buffer_size);
-+            if (!vertex_shader)
-+            {
-+                // A failed shader compilation must return the compiler error instead of entering program setup with a null shader.
-+                delete program;
-+                return 0;
-+            }
-+
-             OpenGLShader* fragment_shader = CreateShader(_context, GL_FRAGMENT_SHADER, ddf_fp, error_buffer, error_buffer_size);
-+            if (!fragment_shader)
-+            {
-+                // A failed shader compilation must return the compiler error instead of entering program setup with a null shader.
-+                DeleteShader(context, vertex_shader);
-+                delete program;
-+                return 0;
-+            }
-+
-             if (!SetupGraphicsProgram(context, program, vertex_shader, fragment_shader))
-             {
-                 DeleteShader(context, vertex_shader);
-@@ -4254,6 +4180,29 @@ static void LogFrameBufferError(GLenum status)
+@@ -4480,6 +4398,29 @@ static void LogFrameBufferError(GLenum status)
          attachment.m_Attached = true;
      }
  
@@ -715,7 +671,7 @@ index eff50fc44b..95e8aedaf0 100644
      static void ApplyRenderTargetAttachments(HContext _context, OpenGLRenderTarget* rt, bool update_current)
      {
          OpenGLContext* context = (OpenGLContext*) _context;
-@@ -4275,15 +4224,9 @@ static void LogFrameBufferError(GLenum status)
+@@ -4501,15 +4442,9 @@ static void LogFrameBufferError(GLenum status)
                  glBindRenderbuffer(GL_RENDERBUFFER, GetGLHandle(context, rt->m_DepthStencilAttachment.m_Buffer));
                  glRenderbufferStorage(GL_RENDERBUFFER, DMGRAPHICS_RENDER_BUFFER_FORMAT_DEPTH_STENCIL, rt->m_Base.m_DepthStencilTextureParams.m_Width, rt->m_Base.m_DepthStencilTextureParams.m_Height);
                  CHECK_GL_ERROR;
@@ -734,7 +690,7 @@ index eff50fc44b..95e8aedaf0 100644
                  glBindRenderbuffer(GL_RENDERBUFFER, 0);
              }
              else if (rt->m_DepthStencilAttachment.m_Type == ATTACHMENT_TYPE_TEXTURE)
-@@ -4296,21 +4239,25 @@ static void LogFrameBufferError(GLenum status)
+@@ -4522,21 +4457,25 @@ static void LogFrameBufferError(GLenum status)
                  CHECK_GL_ERROR;
  
                   // The data type (DMGRAPHICS_TYPE_UNSIGNED_INT_24_8) might change later when we introduce 32f depth formats
@@ -768,7 +724,7 @@ index eff50fc44b..95e8aedaf0 100644
              }
              else
              {
-@@ -4375,6 +4322,24 @@ static void LogFrameBufferError(GLenum status)
+@@ -4693,6 +4632,24 @@ static void LogFrameBufferError(GLenum status)
              BUFFER_TYPE_COLOR3_BIT,
          };
  
@@ -793,12 +749,12 @@ index eff50fc44b..95e8aedaf0 100644
          // NOTE: Regarding this, the OpenGL context we create is to low on all current desktop platforms to use, but it should work for the other adapters.
          if (stencil_texture)
          {
-@@ -5553,6 +5518,15 @@ static void LogFrameBufferError(GLenum status)
+@@ -6016,6 +5973,15 @@ static void LogFrameBufferError(GLenum status)
      {
          GraphicsAdapterFunctionTable fn_table = {};
          DM_REGISTER_GRAPHICS_FUNCTION_TABLE(fn_table, OpenGL);
 +
-+        #if defined(GLFW_ANGLE_PLATFORM_TYPE)
++        #if defined(DM_GRAPHICS_USE_ANGLE) && defined(GLFW_ANGLE_PLATFORM_TYPE)
 +        const char* angle_platform_type = getenv("DM_ANGLE_PLATFORM_TYPE");
 +        if (angle_platform_type && strcmp(angle_platform_type, "d3d9") == 0)
 +        {
@@ -810,7 +766,7 @@ index eff50fc44b..95e8aedaf0 100644
      }
  }
 diff --git a/engine/graphics/src/opengl/graphics_opengl_defines.h b/engine/graphics/src/opengl/graphics_opengl_defines.h
-index 1e190182a5..28a1cdae3f 100644
+index f173a373a0..d24c262a1c 100644
 --- a/engine/graphics/src/opengl/graphics_opengl_defines.h
 +++ b/engine/graphics/src/opengl/graphics_opengl_defines.h
 @@ -43,12 +43,10 @@
@@ -830,7 +786,7 @@ index 1e190182a5..28a1cdae3f 100644
  #elif defined (ANDROID)
  #define GL_GLEXT_PROTOTYPES
 diff --git a/engine/graphics/src/wscript b/engine/graphics/src/wscript
-index ea75ce413c..f41fe76cb0 100755
+index 23fcada6e8..6a037393e9 100755
 --- a/engine/graphics/src/wscript
 +++ b/engine/graphics/src/wscript
 @@ -72,6 +72,9 @@ def build(bld):
@@ -844,7 +800,7 @@ index ea75ce413c..f41fe76cb0 100755
              if platform_supports_feature(bld.env.PLATFORM, 'opengl_compute', {}):
                  opengl_defines.append('DM_HAVE_OPENGL_COMPUTE_SUPPORT')
 diff --git a/engine/graphics/wscript b/engine/graphics/wscript
-index 73ebcf8b8c..7834eac6b2 100644
+index 91a4bb9c95..157aa6d603 100644
 --- a/engine/graphics/wscript
 +++ b/engine/graphics/wscript
 @@ -59,7 +59,7 @@ def configure(conf):
@@ -885,11 +841,11 @@ index 0083a9bb43..947dce3432 100644
        graphics_transcoder_basisu
        basis_transcoder
 diff --git a/engine/tools/wscript b/engine/tools/wscript
-index 63def42bdc..95c5b29efe 100755
+index 9df4cba724..66ba999808 100755
 --- a/engine/tools/wscript
 +++ b/engine/tools/wscript
 @@ -48,7 +48,8 @@ def configure(conf):
-     elif platform == 'x86_64-ios':
+     elif platform == 'arm64_sim-ios':
          pass
      elif target_os == TargetOS.WINDOWS:
 -        conf.env.append_value('LINKFLAGS', ['opengl32.lib', 'user32.lib', 'shell32.lib', 'xinput9_1_0.lib', 'dinput8.lib', 'dxguid.lib'])
@@ -899,27 +855,27 @@ index 63def42bdc..95c5b29efe 100755
          conf.env.append_value('LINKFLAGS', ['-lEGL', '-lGLESv1_CM', '-lGLESv2', '-landroid'])
  
 diff --git a/scripts/build.py b/scripts/build.py
-index 155d1b4557..e6561911a6 100755
+index 67af5a9e8e..c47434887c 100755
 --- a/scripts/build.py
 +++ b/scripts/build.py
-@@ -263,6 +263,7 @@ PACKAGES_MACOS_ARM64=[
+@@ -266,6 +266,7 @@ PACKAGES_MACOS_ARM64=[
      "zipalign"]
  
  PACKAGES_WIN32=[
 +    "angle-06e6c6b5",
-     "protobuf-3.20.1",
+     "protobuf-35.1",
      "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
-@@ -278,6 +279,7 @@ PACKAGES_WIN32=[
-     "SkriBidi-1e8038"]
+@@ -280,6 +281,7 @@ PACKAGES_WIN32=[
+     "SkriBidi-a4a2f5"]
  
  PACKAGES_WIN32_64=[
 +    "angle-06e6c6b5",
-     "protobuf-3.20.1",
+     "protobuf-35.1",
      "luajit-2.1.0-3e223cb",
      "glut-3.7.6",
 diff --git a/scripts/cmake/functions_graphics.cmake b/scripts/cmake/functions_graphics.cmake
-index ce6a390e12..d52ec12f1b 100644
+index 18eacffc18..9af4bf6bc8 100644
 --- a/scripts/cmake/functions_graphics.cmake
 +++ b/scripts/cmake/functions_graphics.cmake
 @@ -62,6 +62,9 @@ function(defold_get_graphics_symbols OUT_VAR PLATFORM)
@@ -929,7 +885,7 @@ index ce6a390e12..d52ec12f1b 100644
 +    elseif("${PLATFORM}" MATCHES "^(x86-win32|x86_64-win32)$")
 +        set(_use_opengles ON)
 +        set(_use_vulkan ${_WITH_VULKAN})
-     elseif("${PLATFORM}" MATCHES "^(armv7-android|arm64-android)$")
+     elseif("${PLATFORM}" MATCHES "^(armv7-android|arm64-android|x86_64-android)$")
          set(_use_opengles ${_WITH_OPENGL})
          if(NOT _WITH_VULKAN)
 @@ -173,7 +176,7 @@ function(defold_target_link_graphics target platform)
@@ -948,14 +904,14 @@ index ce6a390e12..d52ec12f1b 100644
 +    elseif("${platform}" MATCHES "^(x86-win32|x86_64-win32)$")
 +        set(_use_opengles ON)
 +        set(_use_vulkan ${_WITH_VULKAN})
-     elseif("${platform}" MATCHES "^(armv7-android|arm64-android)$")
+     elseif("${platform}" MATCHES "^(armv7-android|arm64-android|x86_64-android)$")
          set(_use_opengles ${_WITH_OPENGL})
          if(NOT _WITH_VULKAN)
 diff --git a/scripts/cmake/functions_libs.cmake b/scripts/cmake/functions_libs.cmake
-index ffbd802d6a..513d31b0ff 100644
+index 73593acce7..0c0f31f02f 100644
 --- a/scripts/cmake/functions_libs.cmake
 +++ b/scripts/cmake/functions_libs.cmake
-@@ -146,6 +146,8 @@ function(defold_target_link_libraries target platform)
+@@ -152,6 +152,8 @@ function(defold_target_link_libraries target platform)
        list(APPEND _LIBS ${_vendor_libs})
      elseif(_lib STREQUAL "graphics" AND DEFINED DEFOLD_PLATFORM_GRAPHICS_LIBS)
        list(APPEND _LIBS ${DEFOLD_PLATFORM_GRAPHICS_LIBS})
