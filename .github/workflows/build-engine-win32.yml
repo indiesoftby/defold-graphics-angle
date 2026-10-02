@@ -28,8 +28,6 @@ jobs:
         include:
           - platform: x86_64-win32
             artifact_platform: x86_64-win32
-          - platform: win32
-            artifact_platform: x86-win32
     runs-on: windows-2025-vs2026
     timeout-minutes: 45
     steps:
@@ -53,7 +51,6 @@ jobs:
         shell: bash
         run: |
           cp patch/angle-06e6c6b5-x86_64-win32.tar.gz packages/
-          cp patch/angle-06e6c6b5-win32.tar.gz packages/
 
       - name: Install Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
@@ -83,7 +80,7 @@ jobs:
           python scripts/build.py save_env --save-env-path=ci/env.sh
           source ci/env.sh
           export PATH="$PATH:$build_original_path"
-          python -u scripts/build.py install_ext check_sdk build_ext build_engine \
+          python -u scripts/build.py install_ext build_engine \
             --platform=${{ matrix.platform }} --disable-ccache \
             --skip-builtins --skip-tests --skip-docs -- --skip-build-tests 2>&1 | tee build.log
 
@@ -128,30 +125,19 @@ jobs:
           name: defold-x86_64-win32
           path: artifacts/defold-x86_64-win32
 
-      - name: Download artifact win32
-        uses: actions/download-artifact@v7
-        with:
-          name: defold-win32
-          path: artifacts/defold-win32
-
       - name: Extract ANGLE libs into extension
         run: |
           mkdir -p extension/graphics_angle/lib
-          tar -xzf angle-06e6c6b5-win32.tar.gz -C extension/graphics_angle ./lib
-          mv extension/graphics_angle/lib/win32 extension/graphics_angle/lib/x86-win32
           tar -xzf angle-06e6c6b5-x86_64-win32.tar.gz -C extension/graphics_angle ./lib
 
       - name: Copy DLLs to res folders
         shell: bash
         run: |
-          mkdir -p extension/graphics_angle/res/x86-win32
           mkdir -p extension/graphics_angle/res/x86_64-win32
-          cp extension/graphics_angle/lib/x86-win32/*.dll extension/graphics_angle/res/x86-win32/
           cp extension/graphics_angle/lib/x86_64-win32/*.dll extension/graphics_angle/res/x86_64-win32/
 
       - name: Prepare extension lib folders and copy graphics_opengles.lib
         run: |
-          cp artifacts/defold-win32/lib/x86-win32/graphics_opengles.lib extension/graphics_angle/lib/x86-win32/
           cp artifacts/defold-x86_64-win32/lib/x86_64-win32/graphics_opengles.lib extension/graphics_angle/lib/x86_64-win32/
 
       - name: Zip extension folder

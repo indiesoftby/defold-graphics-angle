@@ -8,7 +8,7 @@ Add this extension to your project so that your Defold game on Windows runs thro
 
 This is a native extension for Defold that replaces the OpenGL graphics adapter with OpenGL ES via [Google ANGLE](https://chromium.googlesource.com/angle/angle). ANGLE translates OpenGL ES API calls to one of the hardware-supported APIs available for that platform. ANGLE supports various graphics APIs, including DirectX 9, 11, and OpenGL, and includes workarounds for problematic GPUs, which broadens your game's compatibility with legacy devices or GPUs with problematic drivers.
 
-Supported operating system: **Windows**.
+Supported operating system: **Windows x86-64**. The current patch targets Defold **1.14.0-beta**, which removed 32-bit Windows support. Use an earlier extension release with Defold 1.13.x for 32-bit Windows builds.
 
 Reasons to use this native extension in your projects:
 * The Defold engine pegs one CPU core at 100% without good reason.

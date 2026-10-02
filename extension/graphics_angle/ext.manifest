@@ -1,12 +1,6 @@
 name: "graphics_angle"
 
 platforms:
-    x86-win32:
-        context:
-            excludeLibs: [libgraphics, OpenGL32]
-            excludeSymbols: [GraphicsAdapterOpenGL]
-            symbols: [GraphicsAdapterOpenGLES]
-
     x86_64-win32:
         context:
             excludeLibs: [libgraphics, OpenGL32]
